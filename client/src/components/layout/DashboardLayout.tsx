@@ -41,6 +41,7 @@ import {
   Sun,
   Map as MapIcon,
   Package,
+  Heart,
 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -49,6 +50,7 @@ interface DashboardLayoutProps {
 
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["citizen", "volunteer", "ngo", "admin"] },
+  { title: "Volunteer Hub", url: "/volunteer", icon: Heart, roles: ["volunteer", "ngo", "admin"] },
   { title: "Active Reports", url: "/reports", icon: AlertTriangle, roles: ["citizen", "volunteer", "ngo", "admin"] },
   { title: "Interactive Map", url: "/map", icon: MapIcon, roles: ["citizen", "volunteer", "ngo", "admin"] },
   { title: "Submit Report", url: "/submit", icon: PlusCircle, roles: ["citizen", "volunteer", "ngo", "admin"] },
@@ -65,7 +67,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [notifications] = useState(3);
   const { user } = useAuth();
 
-  const { data: reputation } = useQuery({
+  const { data: reputation } = useQuery<{ trustScore: number }>({
     queryKey: ["/api/reputation/me"],
     enabled: !!user,
   });

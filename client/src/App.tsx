@@ -19,6 +19,7 @@ import AidOffers from "@/pages/AidOffers";
 import SubmitAidOffer from "@/pages/SubmitAidOffer";
 import AidOfferMatches from "@/pages/AidOfferMatches";
 import AdminDashboard from "@/pages/feed/AdminDashboard";
+import VolunteerDashboard from "@/pages/VolunteerDashboard";
 import ResourceManagement from "@/pages/ResourceManagement";
 import AnalyticsDashboard from "@/pages/feed/AnalyticsDashboard";
 import NotFound from "@/pages/not-found";
@@ -49,6 +50,7 @@ function Router() {
         <>
           <Route path="/" component={Dashboard} />
           <Route path="/dashboard" component={Dashboard} />
+          <Route path="/volunteer" component={VolunteerDashboard} />
           <Route path="/reports" component={ActiveReports} />
           <Route path="/submit" component={SubmitReport} />
           <Route path="/map" component={Map} />

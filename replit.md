@@ -21,12 +21,13 @@ Preferred communication style: Simple, everyday language.
 
 **Key Features**:
 -   **Dashboard**: Statistics, active reports with filtering.
+-   **Volunteer Hub**: Comprehensive dashboard for volunteers/NGOs with demand-supply overview, pending resource requests, aid offer management, and report verification queue. Includes real-time metrics and AI-powered insights.
 -   **Interactive Map**: Leaflet with OpenStreetMap, color-coded severity markers, filtering, clickable report previews, detailed report view with AI validation score and media.
 -   **Report Submission**: Multi-step form for emergency type, severity, GPS capture, photo/video upload (Uppy to S3-compatible storage), AI validation for legitimacy.
 -   **Resource Request System**: Allows victims to request resources (food, water, shelter, medical, etc.) with urgency and location. Includes real-time updates and status tracking.
 -   **Aid Offers System**: Enables volunteers to list available resources with GPS for proximity matching. Features an AI-powered matching interface for resource requests, commitment functionality, and status tracking.
 -   Real-time notifications via toast messages.
--   Responsive sidebar navigation.
+-   Responsive sidebar navigation with role-based menu items.
 
 ### Backend Architecture
 
