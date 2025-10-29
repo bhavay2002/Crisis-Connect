@@ -22,6 +22,16 @@ export function useWebSocket({
   const wsRef = useRef<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  
+  const onMessageRef = useRef(onMessage);
+  const onConnectRef = useRef(onConnect);
+  const onDisconnectRef = useRef(onDisconnect);
+
+  useEffect(() => {
+    onMessageRef.current = onMessage;
+    onConnectRef.current = onConnect;
+    onDisconnectRef.current = onDisconnect;
+  }, [onMessage, onConnect, onDisconnect]);
 
   const connect = useCallback(() => {
     if (!enabled || wsRef.current?.readyState === WebSocket.OPEN) {
@@ -36,13 +46,13 @@ export function useWebSocket({
       socket.onopen = () => {
         console.log("WebSocket connected");
         setIsConnected(true);
-        onConnect?.();
+        onConnectRef.current?.();
       };
 
       socket.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data) as WebSocketMessage;
-          onMessage?.(message);
+          onMessageRef.current?.(message);
         } catch (error) {
           console.error("Failed to parse WebSocket message:", error);
         }
@@ -52,7 +62,7 @@ export function useWebSocket({
         console.log("WebSocket disconnected");
         setIsConnected(false);
         wsRef.current = null;
-        onDisconnect?.();
+        onDisconnectRef.current?.();
 
         // Attempt to reconnect after 3 seconds
         if (enabled) {
@@ -71,7 +81,7 @@ export function useWebSocket({
     } catch (error) {
       console.error("Failed to create WebSocket connection:", error);
     }
-  }, [enabled, onMessage, onConnect, onDisconnect]);
+  }, [enabled]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
