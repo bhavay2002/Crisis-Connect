@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import RoleBadge from "@/components/RoleBadge";
+import TrustScoreBadge from "@/components/TrustScoreBadge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,21 +48,31 @@ interface DashboardLayoutProps {
 }
 
 const menuItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Active Reports", url: "/reports", icon: AlertTriangle },
-  { title: "Interactive Map", url: "/map", icon: MapIcon },
-  { title: "Submit Report", url: "/submit", icon: PlusCircle },
-  { title: "Resource Requests", url: "/resource-requests", icon: Package },
-  { title: "My Reports", url: "/my-reports", icon: FileText },
-  { title: "Response Teams", url: "/teams", icon: Users },
-  { title: "Analytics", url: "/analytics", icon: BarChart3 },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["citizen", "volunteer", "ngo", "admin"] },
+  { title: "Active Reports", url: "/reports", icon: AlertTriangle, roles: ["citizen", "volunteer", "ngo", "admin"] },
+  { title: "Interactive Map", url: "/map", icon: MapIcon, roles: ["citizen", "volunteer", "ngo", "admin"] },
+  { title: "Submit Report", url: "/submit", icon: PlusCircle, roles: ["citizen", "volunteer", "ngo", "admin"] },
+  { title: "Resource Requests", url: "/resource-requests", icon: Package, roles: ["citizen", "volunteer", "ngo", "admin"] },
+  { title: "Resource Management", url: "/resource-management", icon: Package, roles: ["ngo", "admin"] },
+  { title: "Analytics", url: "/analytics", icon: BarChart3, roles: ["admin"] },
+  { title: "My Reports", url: "/my-reports", icon: FileText, roles: ["citizen", "volunteer", "ngo", "admin"] },
+  { title: "Response Teams", url: "/teams", icon: Users, roles: ["volunteer", "ngo", "admin"] },
 ];
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [location] = useLocation();
   const [isDark, setIsDark] = useState(false);
-  const [notifications] = useState(3); // Mock notification count
+  const [notifications] = useState(3);
   const { user } = useAuth();
+
+  const { data: reputation } = useQuery({
+    queryKey: ["/api/reputation/me"],
+    enabled: !!user,
+  });
+
+  const filteredMenuItems = menuItems.filter((item) =>
+    item.roles.includes(user?.role || "citizen")
+  );
 
   const toggleTheme = () => {
     setIsDark(!isDark);
@@ -84,7 +96,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {menuItems.map((item) => (
+                  {filteredMenuItems.map((item) => (
                     <SidebarMenuItem key={item.title}>
                       <Link href={item.url}>
                         <SidebarMenuButton
@@ -158,11 +170,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                       <p className="text-xs text-muted-foreground">
                         {user?.email || ""}
                       </p>
-                      {user?.role && (
-                        <div className="pt-1">
-                          <RoleBadge role={user.role} size="sm" />
-                        </div>
-                      )}
+                      <div className="flex gap-2 pt-1 flex-wrap">
+                        {user?.role && <RoleBadge role={user.role} size="sm" />}
+                        {reputation && (
+                          <TrustScoreBadge 
+                            score={reputation.trustScore} 
+                            size="sm" 
+                            showLabel={false}
+                          />
+                        )}
+                      </div>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />

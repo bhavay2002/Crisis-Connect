@@ -250,3 +250,220 @@ export const insertAidOfferSchema = createInsertSchema(aidOffers).omit({
 
 export type InsertAidOffer = z.infer<typeof insertAidOfferSchema>;
 export type AidOffer = typeof aidOffers.$inferSelect;
+
+export const inventoryItemTypeEnum = pgEnum("inventory_item_type", [
+  "shelter",
+  "food",
+  "water",
+  "medical_supplies",
+  "clothing",
+  "blankets",
+  "equipment",
+  "other",
+]);
+
+export const inventoryItems = pgTable("inventory_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  itemType: inventoryItemTypeEnum("item_type").notNull(),
+  quantity: integer("quantity").notNull(),
+  unit: varchar("unit").notNull(),
+  location: text("location").notNull(),
+  latitude: text("latitude"),
+  longitude: text("longitude"),
+  expiryDate: timestamp("expiry_date"),
+  minimumThreshold: integer("minimum_threshold").default(10),
+  description: text("description"),
+  managedBy: varchar("managed_by")
+    .notNull()
+    .references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertInventoryItemSchema = createInsertSchema(inventoryItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;
+export type InventoryItem = typeof inventoryItems.$inferSelect;
+
+export const analyticsEventTypeEnum = pgEnum("analytics_event_type", [
+  "report_submitted",
+  "report_verified",
+  "report_resolved",
+  "resource_requested",
+  "resource_fulfilled",
+  "aid_offered",
+  "aid_delivered",
+  "user_registered",
+]);
+
+export const analyticsEvents = pgTable("analytics_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventType: analyticsEventTypeEnum("event_type").notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  relatedEntityId: varchar("related_entity_id"),
+  relatedEntityType: varchar("related_entity_type"),
+  metadata: jsonb("metadata"),
+  location: text("location"),
+  latitude: text("latitude"),
+  longitude: text("longitude"),
+  responseTime: integer("response_time"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertAnalyticsEventSchema = createInsertSchema(analyticsEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAnalyticsEvent = z.infer<typeof insertAnalyticsEventSchema>;
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
+
+export const userReputation = pgTable("user_reputation", {
+  userId: varchar("user_id")
+    .primaryKey()
+    .references(() => users.id),
+  trustScore: integer("trust_score").notNull().default(50),
+  totalReports: integer("total_reports").notNull().default(0),
+  verifiedReports: integer("verified_reports").notNull().default(0),
+  falseReports: integer("false_reports").notNull().default(0),
+  verificationsGiven: integer("verifications_given").notNull().default(0),
+  upvotesReceived: integer("upvotes_received").notNull().default(0),
+  downvotesReceived: integer("downvotes_received").notNull().default(0),
+  resourcesProvided: integer("resources_provided").notNull().default(0),
+  resourcesFulfilled: integer("resources_fulfilled").notNull().default(0),
+  responseTimeAvg: integer("response_time_avg"),
+  lastUpdated: timestamp("last_updated").defaultNow().notNull(),
+});
+
+export const insertUserReputationSchema = createInsertSchema(userReputation).omit({
+  lastUpdated: true,
+});
+
+export type InsertUserReputation = z.infer<typeof insertUserReputationSchema>;
+export type UserReputation = typeof userReputation.$inferSelect;
+
+// SOS Alerts
+export const sosStatusEnum = pgEnum("sos_status", [
+  "active",
+  "responding",
+  "resolved",
+  "cancelled",
+]);
+
+export const sosAlerts = pgTable("sos_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id")
+    .notNull()
+    .references(() => users.id),
+  emergencyType: disasterTypeEnum("emergency_type").notNull(),
+  severity: severityEnum("severity").notNull(),
+  status: sosStatusEnum("status").notNull().default("active"),
+  location: text("location").notNull(),
+  latitude: text("latitude"),
+  longitude: text("longitude"),
+  description: text("description"),
+  contactNumber: varchar("contact_number"),
+  respondedBy: varchar("responded_by").references(() => users.id),
+  respondedAt: timestamp("responded_at"),
+  resolvedAt: timestamp("resolved_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertSOSAlertSchema = createInsertSchema(sosAlerts).omit({
+  id: true,
+  status: true,
+  respondedBy: true,
+  respondedAt: true,
+  resolvedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSOSAlert = z.infer<typeof insertSOSAlertSchema>;
+export type SOSAlert = typeof sosAlerts.$inferSelect;
+
+// Chat Rooms
+export const chatRoomTypeEnum = pgEnum("chat_room_type", [
+  "direct",
+  "group",
+  "report",
+]);
+
+export const chatRooms = pgTable("chat_rooms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name"),
+  type: chatRoomTypeEnum("type").notNull(),
+  relatedReportId: varchar("related_report_id").references(() => disasterReports.id),
+  relatedSOSId: varchar("related_sos_id").references(() => sosAlerts.id),
+  createdBy: varchar("created_by")
+    .notNull()
+    .references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertChatRoomSchema = createInsertSchema(chatRooms).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertChatRoom = z.infer<typeof insertChatRoomSchema>;
+export type ChatRoom = typeof chatRooms.$inferSelect;
+
+// Chat Room Members
+export const chatRoomMembers = pgTable("chat_room_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  chatRoomId: varchar("chat_room_id")
+    .notNull()
+    .references(() => chatRooms.id),
+  userId: varchar("user_id")
+    .notNull()
+    .references(() => users.id),
+  role: text("role").default("member"),
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+  lastReadAt: timestamp("last_read_at"),
+});
+
+export const insertChatRoomMemberSchema = createInsertSchema(chatRoomMembers).omit({
+  id: true,
+  joinedAt: true,
+});
+
+export type InsertChatRoomMember = z.infer<typeof insertChatRoomMemberSchema>;
+export type ChatRoomMember = typeof chatRoomMembers.$inferSelect;
+
+// Messages
+export const messageTypeEnum = pgEnum("message_type", [
+  "text",
+  "ai_assistant",
+  "system",
+  "location",
+  "media",
+]);
+
+export const messages = pgTable("messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  chatRoomId: varchar("chat_room_id")
+    .notNull()
+    .references(() => chatRooms.id),
+  senderId: varchar("sender_id").references(() => users.id),
+  content: text("content").notNull(),
+  messageType: messageTypeEnum("message_type").notNull().default("text"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertMessageSchema = createInsertSchema(messages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type Message = typeof messages.$inferSelect;

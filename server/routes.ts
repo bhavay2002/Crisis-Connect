@@ -3,11 +3,23 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertDisasterReportSchema, insertVerificationSchema, insertResourceRequestSchema, insertAidOfferSchema } from "@shared/schema";
+import { 
+  insertDisasterReportSchema, 
+  insertVerificationSchema, 
+  insertResourceRequestSchema, 
+  insertAidOfferSchema,
+  insertInventoryItemSchema,
+  insertAnalyticsEventSchema,
+  insertSOSAlertSchema,
+  insertChatRoomSchema,
+  insertChatRoomMemberSchema,
+  insertMessageSchema
+} from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { AIValidationService } from "./aiValidation";
 import { AIMatchingService } from "./aiMatching";
+import { AICrisisGuidanceService } from "./aiCrisisGuidance";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication middleware
@@ -1005,6 +1017,272 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Inventory management routes (Admin/NGO only)
+  app.get("/api/inventory", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !["admin", "ngo"].includes(user.role as string)) {
+        return res.status(403).json({ message: "Access denied. Admin or NGO role required." });
+      }
+
+      const items = await storage.getAllInventoryItems();
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching inventory items:", error);
+      res.status(500).json({ message: "Failed to fetch inventory items" });
+    }
+  });
+
+  app.get("/api/inventory/low-stock", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !["admin", "ngo"].includes(user.role as string)) {
+        return res.status(403).json({ message: "Access denied. Admin or NGO role required." });
+      }
+
+      const items = await storage.getLowStockItems();
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching low stock items:", error);
+      res.status(500).json({ message: "Failed to fetch low stock items" });
+    }
+  });
+
+  app.get("/api/inventory/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !["admin", "ngo"].includes(user.role as string)) {
+        return res.status(403).json({ message: "Access denied. Admin or NGO role required." });
+      }
+
+      const item = await storage.getInventoryItem(req.params.id);
+      if (!item) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+      res.json(item);
+    } catch (error) {
+      console.error("Error fetching inventory item:", error);
+      res.status(500).json({ message: "Failed to fetch inventory item" });
+    }
+  });
+
+  app.post("/api/inventory", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !["admin", "ngo"].includes(user.role as string)) {
+        return res.status(403).json({ message: "Access denied. Admin or NGO role required." });
+      }
+
+      const validationResult = insertInventoryItemSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        const errorMessage = fromZodError(validationResult.error);
+        return res.status(400).json({ message: errorMessage.toString() });
+      }
+
+      const item = await storage.createInventoryItem({
+        ...validationResult.data,
+        managedBy: userId,
+      });
+      res.json(item);
+    } catch (error) {
+      console.error("Error creating inventory item:", error);
+      res.status(500).json({ message: "Failed to create inventory item" });
+    }
+  });
+
+  app.patch("/api/inventory/:id/quantity", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !["admin", "ngo"].includes(user.role as string)) {
+        return res.status(403).json({ message: "Access denied. Admin or NGO role required." });
+      }
+
+      const { quantity } = req.body;
+      if (typeof quantity !== "number") {
+        return res.status(400).json({ message: "Invalid quantity" });
+      }
+
+      const item = await storage.updateInventoryQuantity(req.params.id, quantity);
+      if (!item) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+      res.json(item);
+    } catch (error) {
+      console.error("Error updating inventory quantity:", error);
+      res.status(500).json({ message: "Failed to update inventory quantity" });
+    }
+  });
+
+  app.delete("/api/inventory/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || !["admin", "ngo"].includes(user.role as string)) {
+        return res.status(403).json({ message: "Access denied. Admin or NGO role required." });
+      }
+
+      await storage.deleteInventoryItem(req.params.id);
+      res.json({ message: "Inventory item deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting inventory item:", error);
+      res.status(500).json({ message: "Failed to delete inventory item" });
+    }
+  });
+
+  // Analytics routes (Admin only)
+  app.get("/api/analytics/events", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 1000;
+      const events = await storage.getAnalyticsEvents(limit);
+      res.json(events);
+    } catch (error) {
+      console.error("Error fetching analytics events:", error);
+      res.status(500).json({ message: "Failed to fetch analytics events" });
+    }
+  });
+
+  app.get("/api/analytics/summary", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const events = await storage.getAnalyticsEventsByDateRange(thirtyDaysAgo, now);
+
+      const summary = {
+        totalEvents: events.length,
+        reportSubmitted: events.filter(e => e.eventType === "report_submitted").length,
+        reportVerified: events.filter(e => e.eventType === "report_verified").length,
+        reportResolved: events.filter(e => e.eventType === "report_resolved").length,
+        resourceRequested: events.filter(e => e.eventType === "resource_requested").length,
+        resourceFulfilled: events.filter(e => e.eventType === "resource_fulfilled").length,
+        aidOffered: events.filter(e => e.eventType === "aid_offered").length,
+        aidDelivered: events.filter(e => e.eventType === "aid_delivered").length,
+        avgResponseTime: events
+          .filter(e => e.responseTime)
+          .reduce((sum, e) => sum + (e.responseTime || 0), 0) / 
+          events.filter(e => e.responseTime).length || 0,
+      };
+
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching analytics summary:", error);
+      res.status(500).json({ message: "Failed to fetch analytics summary" });
+    }
+  });
+
+  app.get("/api/analytics/disaster-frequency", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const reports = await storage.getAllDisasterReports();
+      
+      const frequency: Record<string, number> = {};
+      reports.forEach(report => {
+        const type = report.type;
+        frequency[type] = (frequency[type] || 0) + 1;
+      });
+
+      res.json(frequency);
+    } catch (error) {
+      console.error("Error fetching disaster frequency:", error);
+      res.status(500).json({ message: "Failed to fetch disaster frequency" });
+    }
+  });
+
+  app.get("/api/analytics/geographic-impact", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ message: "Access denied. Admin role required." });
+      }
+
+      const reports = await storage.getAllDisasterReports();
+      
+      const geographicData = reports
+        .filter(r => r.latitude && r.longitude)
+        .map(r => ({
+          id: r.id,
+          type: r.type,
+          severity: r.severity,
+          location: r.location,
+          latitude: parseFloat(r.latitude || "0"),
+          longitude: parseFloat(r.longitude || "0"),
+          status: r.status,
+        }));
+
+      res.json(geographicData);
+    } catch (error) {
+      console.error("Error fetching geographic impact:", error);
+      res.status(500).json({ message: "Failed to fetch geographic impact" });
+    }
+  });
+
+  // User reputation routes
+  app.get("/api/reputation/:userId", async (req, res) => {
+    try {
+      const reputation = await storage.getUserReputation(req.params.userId);
+      
+      if (!reputation) {
+        const newReputation = await storage.createUserReputation({ 
+          userId: req.params.userId 
+        });
+        return res.json(newReputation);
+      }
+      
+      res.json(reputation);
+    } catch (error) {
+      console.error("Error fetching user reputation:", error);
+      res.status(500).json({ message: "Failed to fetch user reputation" });
+    }
+  });
+
+  app.get("/api/reputation/me", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      let reputation = await storage.getUserReputation(userId);
+      
+      if (!reputation) {
+        reputation = await storage.createUserReputation({ userId });
+      }
+      
+      res.json(reputation);
+    } catch (error) {
+      console.error("Error fetching user reputation:", error);
+      res.status(500).json({ message: "Failed to fetch user reputation" });
+    }
+  });
+
   // Object storage routes
   app.get("/objects/:objectPath(*)", isAuthenticated, async (req: any, res) => {
     const userId = req.user?.claims?.sub;
@@ -1056,6 +1334,501 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error setting media ACL:", error);
       res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // SOS Alert Routes
+  app.post("/api/sos", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validatedData = insertSOSAlertSchema.parse({
+        ...req.body,
+        userId,
+      });
+
+      const sosAlert = await storage.createSOSAlert(validatedData);
+
+      // Broadcast new SOS alert to all connected WebSocket clients
+      broadcastToAll({ type: "new_sos_alert", data: sosAlert });
+
+      res.status(201).json(sosAlert);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      console.error("Error creating SOS alert:", error);
+      res.status(500).json({ message: "Failed to create SOS alert" });
+    }
+  });
+
+  app.get("/api/sos", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Only responders (volunteer, NGO, admin) can view all SOS alerts
+      if (!user.role || !["volunteer", "ngo", "admin"].includes(user.role)) {
+        return res.status(403).json({ 
+          message: "Only volunteers, NGOs, and admins can view all SOS alerts" 
+        });
+      }
+
+      const alerts = await storage.getAllSOSAlerts();
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching SOS alerts:", error);
+      res.status(500).json({ message: "Failed to fetch SOS alerts" });
+    }
+  });
+
+  app.get("/api/sos/active", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Only responders (volunteer, NGO, admin) can view active SOS alerts
+      if (!user.role || !["volunteer", "ngo", "admin"].includes(user.role)) {
+        return res.status(403).json({ 
+          message: "Only volunteers, NGOs, and admins can view active SOS alerts" 
+        });
+      }
+
+      const alerts = await storage.getActiveSOSAlerts();
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching active SOS alerts:", error);
+      res.status(500).json({ message: "Failed to fetch active SOS alerts" });
+    }
+  });
+
+  app.get("/api/sos/mine", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const alerts = await storage.getSOSAlertsByUser(userId);
+      res.json(alerts);
+    } catch (error) {
+      console.error("Error fetching user SOS alerts:", error);
+      res.status(500).json({ message: "Failed to fetch user SOS alerts" });
+    }
+  });
+
+  app.get("/api/sos/:id", async (req, res) => {
+    try {
+      const alert = await storage.getSOSAlert(req.params.id);
+      if (!alert) {
+        return res.status(404).json({ message: "SOS alert not found" });
+      }
+      res.json(alert);
+    } catch (error) {
+      console.error("Error fetching SOS alert:", error);
+      res.status(500).json({ message: "Failed to fetch SOS alert" });
+    }
+  });
+
+  app.post("/api/sos/:id/respond", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+
+      // Get current user
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Only responders (volunteer, NGO, admin) can respond to SOS alerts
+      if (!user.role || !["volunteer", "ngo", "admin"].includes(user.role)) {
+        return res.status(403).json({ 
+          message: "Only volunteers, NGOs, and admins can respond to SOS alerts" 
+        });
+      }
+
+      // Check if SOS alert exists
+      const alert = await storage.getSOSAlert(id);
+      if (!alert) {
+        return res.status(404).json({ message: "SOS alert not found" });
+      }
+
+      // Respond to the alert
+      const updatedAlert = await storage.respondToSOSAlert(id, userId);
+
+      // Broadcast response to all connected WebSocket clients
+      if (updatedAlert) {
+        broadcastToAll({ type: "sos_alert_responded", data: updatedAlert });
+      }
+
+      res.json(updatedAlert);
+    } catch (error) {
+      console.error("Error responding to SOS alert:", error);
+      res.status(500).json({ message: "Failed to respond to SOS alert" });
+    }
+  });
+
+  app.post("/api/sos/:id/resolve", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+
+      // Check if SOS alert exists
+      const alert = await storage.getSOSAlert(id);
+      if (!alert) {
+        return res.status(404).json({ message: "SOS alert not found" });
+      }
+
+      // Only the creator or the responder can resolve the alert
+      if (alert.userId !== userId && alert.respondedBy !== userId) {
+        return res.status(403).json({ 
+          message: "Only the creator or responder can resolve this SOS alert" 
+        });
+      }
+
+      const updatedAlert = await storage.resolveSOSAlert(id);
+
+      // Broadcast resolution to all connected WebSocket clients
+      if (updatedAlert) {
+        broadcastToAll({ type: "sos_alert_resolved", data: updatedAlert });
+      }
+
+      res.json(updatedAlert);
+    } catch (error) {
+      console.error("Error resolving SOS alert:", error);
+      res.status(500).json({ message: "Failed to resolve SOS alert" });
+    }
+  });
+
+  app.patch("/api/sos/:id/status", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const { status } = req.body;
+
+      // Validate status
+      const validStatuses = ["active", "responding", "resolved", "cancelled"];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      // Check if SOS alert exists
+      const alert = await storage.getSOSAlert(id);
+      if (!alert) {
+        return res.status(404).json({ message: "SOS alert not found" });
+      }
+
+      // Only the creator or responder can update status
+      if (alert.userId !== userId && alert.respondedBy !== userId) {
+        return res.status(403).json({ 
+          message: "Only the creator or responder can update this SOS alert status" 
+        });
+      }
+
+      const updatedAlert = await storage.updateSOSAlertStatus(
+        id, 
+        status as "active" | "responding" | "resolved" | "cancelled"
+      );
+
+      // Broadcast status update to all connected WebSocket clients
+      if (updatedAlert) {
+        broadcastToAll({ type: "sos_alert_updated", data: updatedAlert });
+      }
+
+      res.json(updatedAlert);
+    } catch (error) {
+      console.error("Error updating SOS alert status:", error);
+      res.status(500).json({ message: "Failed to update SOS alert status" });
+    }
+  });
+
+  // Chat Room Routes
+  app.post("/api/chat/rooms", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validatedData = insertChatRoomSchema.parse({
+        ...req.body,
+        createdBy: userId,
+      });
+
+      const chatRoom = await storage.createChatRoom(validatedData);
+
+      // Automatically add creator as a member
+      await storage.addChatRoomMember({
+        chatRoomId: chatRoom.id,
+        userId,
+        role: "admin",
+      });
+
+      res.status(201).json(chatRoom);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      console.error("Error creating chat room:", error);
+      res.status(500).json({ message: "Failed to create chat room" });
+    }
+  });
+
+  app.get("/api/chat/rooms", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const chatRooms = await storage.getUserChatRooms(userId);
+      res.json(chatRooms);
+    } catch (error) {
+      console.error("Error fetching chat rooms:", error);
+      res.status(500).json({ message: "Failed to fetch chat rooms" });
+    }
+  });
+
+  app.get("/api/chat/rooms/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+
+      // Check if user is a member of the chat room
+      const isMember = await storage.isChatRoomMember(id, userId);
+      if (!isMember) {
+        return res.status(403).json({ 
+          message: "You must be a member to access this chat room" 
+        });
+      }
+
+      const chatRoom = await storage.getChatRoom(id);
+      if (!chatRoom) {
+        return res.status(404).json({ message: "Chat room not found" });
+      }
+
+      res.json(chatRoom);
+    } catch (error) {
+      console.error("Error fetching chat room:", error);
+      res.status(500).json({ message: "Failed to fetch chat room" });
+    }
+  });
+
+  app.post("/api/chat/rooms/:id/members", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+      const { userId: newMemberId, role } = req.body;
+
+      if (!newMemberId) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
+
+      // Check if chat room exists
+      const chatRoom = await storage.getChatRoom(id);
+      if (!chatRoom) {
+        return res.status(404).json({ message: "Chat room not found" });
+      }
+
+      // Only creator or admin can add members
+      if (chatRoom.createdBy !== userId) {
+        const user = await storage.getUser(userId);
+        if (!user || user.role !== "admin") {
+          return res.status(403).json({ 
+            message: "Only the creator or admin can add members" 
+          });
+        }
+      }
+
+      // Verify new member exists
+      const newMember = await storage.getUser(newMemberId);
+      if (!newMember) {
+        return res.status(404).json({ message: "User to add not found" });
+      }
+
+      const validatedData = insertChatRoomMemberSchema.parse({
+        chatRoomId: id,
+        userId: newMemberId,
+        role: role || "member",
+      });
+
+      const member = await storage.addChatRoomMember(validatedData);
+      res.status(201).json(member);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      console.error("Error adding chat room member:", error);
+      res.status(500).json({ message: "Failed to add chat room member" });
+    }
+  });
+
+  app.delete("/api/chat/rooms/:id/members/:userId", isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUserId = req.user.claims.sub;
+      const { id, userId: memberToRemove } = req.params;
+
+      // Check if chat room exists
+      const chatRoom = await storage.getChatRoom(id);
+      if (!chatRoom) {
+        return res.status(404).json({ message: "Chat room not found" });
+      }
+
+      // Only creator or admin can remove members (or users can remove themselves)
+      if (chatRoom.createdBy !== currentUserId && memberToRemove !== currentUserId) {
+        const user = await storage.getUser(currentUserId);
+        if (!user || user.role !== "admin") {
+          return res.status(403).json({ 
+            message: "Only the creator, admin, or the member themselves can remove members" 
+          });
+        }
+      }
+
+      await storage.removeChatRoomMember(id, memberToRemove);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error removing chat room member:", error);
+      res.status(500).json({ message: "Failed to remove chat room member" });
+    }
+  });
+
+  // Message Routes
+  app.post("/api/chat/rooms/:roomId/messages", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { roomId } = req.params;
+
+      // Check if user is a member of the chat room
+      const isMember = await storage.isChatRoomMember(roomId, userId);
+      if (!isMember) {
+        return res.status(403).json({ 
+          message: "You must be a member to send messages in this chat room" 
+        });
+      }
+
+      const validatedData = insertMessageSchema.parse({
+        ...req.body,
+        chatRoomId: roomId,
+        senderId: userId,
+      });
+
+      const message = await storage.createMessage(validatedData);
+
+      // Update last read timestamp
+      await storage.updateLastReadAt(roomId, userId);
+
+      // Broadcast new message to all connected WebSocket clients
+      broadcastToAll({ type: "new_message", data: message });
+
+      res.status(201).json(message);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      console.error("Error creating message:", error);
+      res.status(500).json({ message: "Failed to create message" });
+    }
+  });
+
+  app.get("/api/chat/rooms/:roomId/messages", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { roomId } = req.params;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+
+      // Check if user is a member of the chat room
+      const isMember = await storage.isChatRoomMember(roomId, userId);
+      if (!isMember) {
+        return res.status(403).json({ 
+          message: "You must be a member to view messages in this chat room" 
+        });
+      }
+
+      const messages = await storage.getMessages(roomId, limit);
+
+      // Update last read timestamp
+      await storage.updateLastReadAt(roomId, userId);
+
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  app.post("/api/chat/rooms/:roomId/ai-assist", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { roomId } = req.params;
+      const { question, emergencyType, severity, description, location } = req.body;
+
+      // Check if user is a member of the chat room
+      const isMember = await storage.isChatRoomMember(roomId, userId);
+      if (!isMember) {
+        return res.status(403).json({ 
+          message: "You must be a member to use AI assistance in this chat room" 
+        });
+      }
+
+      const aiService = new AICrisisGuidanceService();
+
+      // If emergency context is provided, use crisis guidance
+      if (emergencyType && severity && description && location) {
+        const guidance = await aiService.getCrisisGuidance(
+          emergencyType,
+          severity,
+          description,
+          location
+        );
+
+        // Create AI assistant message
+        const aiMessage = await storage.createMessage({
+          chatRoomId: roomId,
+          senderId: null,
+          content: JSON.stringify(guidance),
+          messageType: "ai_assistant",
+          metadata: { 
+            emergencyType, 
+            severity, 
+            description, 
+            location 
+          },
+        });
+
+        // Broadcast AI message to all connected WebSocket clients
+        broadcastToAll({ type: "new_message", data: aiMessage });
+
+        res.status(201).json({ message: aiMessage, guidance });
+      } else if (question) {
+        // Get recent messages for context
+        const recentMessages = await storage.getMessages(roomId, 10);
+        const conversationContext = recentMessages
+          .map(m => `${m.senderId ? 'User' : 'AI'}: ${m.content}`)
+          .join('\n');
+
+        const response = await aiService.getChatGuidance(conversationContext, question);
+
+        // Create AI assistant message
+        const aiMessage = await storage.createMessage({
+          chatRoomId: roomId,
+          senderId: null,
+          content: response,
+          messageType: "ai_assistant",
+          metadata: { question },
+        });
+
+        // Broadcast AI message to all connected WebSocket clients
+        broadcastToAll({ type: "new_message", data: aiMessage });
+
+        res.status(201).json({ message: aiMessage, response });
+      } else {
+        return res.status(400).json({ 
+          message: "Either provide emergency context or a question for AI assistance" 
+        });
+      }
+    } catch (error: any) {
+      console.error("Error getting AI assistance:", error);
+      res.status(500).json({ message: "Failed to get AI assistance" });
     }
   });
 
