@@ -38,6 +38,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
+import { encryptMessage, decryptMessage, isEncryptionEnabled } from "./encryption";
 
 export interface IStorage {
   // User operations - Required for Replit Auth
@@ -973,21 +974,69 @@ export class DatabaseStorage implements IStorage {
 
   // Message operations
   async createMessage(message: InsertMessage): Promise<Message> {
-    const [msg] = await db.insert(messages).values(message).returning();
+    let messageData: any = { ...message };
+    
+    if (isEncryptionEnabled() && message.messageType !== "system") {
+      try {
+        const encrypted = encryptMessage(message.content);
+        messageData = {
+          ...message,
+          content: encrypted.encrypted,
+          encryptionIv: encrypted.iv,
+          encryptionTag: encrypted.tag,
+          isEncrypted: true,
+        };
+      } catch (error) {
+        console.error("Encryption failed, storing message unencrypted:", error);
+        messageData = {
+          ...message,
+          isEncrypted: false,
+        };
+      }
+    } else {
+      messageData = {
+        ...message,
+        isEncrypted: false,
+      };
+    }
+    
+    const [msg] = await db.insert(messages).values(messageData).returning();
     return msg;
   }
 
   async getMessages(chatRoomId: string, limit: number = 100): Promise<Message[]> {
-    return db
+    const msgs = await db
       .select()
       .from(messages)
       .where(eq(messages.chatRoomId, chatRoomId))
       .orderBy(desc(messages.createdAt))
       .limit(limit);
+    
+    return msgs.map((msg) => {
+      if (msg.isEncrypted && msg.encryptionIv && msg.encryptionTag) {
+        try {
+          return {
+            ...msg,
+            content: decryptMessage({
+              encrypted: msg.content,
+              iv: msg.encryptionIv,
+              tag: msg.encryptionTag,
+            }),
+          };
+        } catch (error) {
+          console.error("Decryption failed for message:", msg.id, error);
+          return {
+            ...msg,
+            content: "[Encrypted message - decryption failed]",
+          };
+        }
+      }
+      return msg;
+    });
   }
 
   async getMessagesSince(chatRoomId: string, sinceDate: Date): Promise<Message[]> {
-    return db
+    const msgs = await db
       .select()
       .from(messages)
       .where(
@@ -997,6 +1046,28 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(messages.createdAt);
+    
+    return msgs.map((msg) => {
+      if (msg.isEncrypted && msg.encryptionIv && msg.encryptionTag) {
+        try {
+          return {
+            ...msg,
+            content: decryptMessage({
+              encrypted: msg.content,
+              iv: msg.encryptionIv,
+              tag: msg.encryptionTag,
+            }),
+          };
+        } catch (error) {
+          console.error("Decryption failed for message:", msg.id, error);
+          return {
+            ...msg,
+            content: "[Encrypted message - decryption failed]",
+          };
+        }
+      }
+      return msg;
+    });
   }
 
   async deleteMessage(id: string): Promise<void> {

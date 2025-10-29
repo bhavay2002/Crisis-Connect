@@ -20,6 +20,15 @@ import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { AIValidationService } from "./aiValidation";
 import { AIMatchingService } from "./aiMatching";
 import { AICrisisGuidanceService } from "./aiCrisisGuidance";
+import { 
+  reportSubmissionLimiter, 
+  resourceRequestLimiter, 
+  messageLimiter, 
+  aiRequestLimiter,
+  verificationLimiter,
+  authLimiter
+} from "./rateLimiting";
+import { AuditLogger } from "./auditLog";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication middleware
@@ -62,7 +71,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/update-role", isAuthenticated, async (req: any, res) => {
+  app.post("/api/auth/update-role", isAuthenticated, authLimiter, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { role } = req.body;
@@ -96,7 +105,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      const oldRole = currentUser.role || "citizen";
       const user = await storage.updateUserRole(userId, role);
+      
+      await AuditLogger.logRoleUpdate(userId, userId, oldRole, role, req);
+      
       res.json(user);
     } catch (error) {
       console.error("Error updating role:", error);
@@ -158,7 +171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/reports", isAuthenticated, async (req: any, res) => {
+  app.post("/api/reports", isAuthenticated, reportSubmissionLimiter, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const validatedData = insertDisasterReportSchema.parse({
@@ -212,10 +225,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid status" });
       }
 
+      const oldReport = await storage.getDisasterReport(req.params.id);
       const report = await storage.updateDisasterReportStatus(req.params.id, status);
       if (!report) {
         return res.status(404).json({ message: "Report not found" });
       }
+
+      // Log status change
+      const userId = (req as any).user.claims.sub;
+      await AuditLogger.logStatusChange(userId, req.params.id, oldReport?.status || "unknown", status, req);
 
       // Broadcast status update to all connected WebSocket clients
       broadcastToAll({ type: "report_updated", data: report });
@@ -284,7 +302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Confirmation routes (for NGO/volunteer users)
-  app.post("/api/reports/:reportId/confirm", isAuthenticated, async (req: any, res) => {
+  app.post("/api/reports/:reportId/confirm", isAuthenticated, verificationLimiter, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { reportId } = req.params;
@@ -310,6 +328,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Confirm the report
       const confirmedReport = await storage.confirmReport(reportId, userId);
+      
+      // Log confirmation
+      await AuditLogger.logReportConfirmation(userId, reportId, req);
       
       // Broadcast confirmation to all connected WebSocket clients
       if (confirmedReport) {
@@ -350,6 +371,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Unconfirm the report
       const unconfirmedReport = await storage.unconfirmReport(reportId);
       
+      // Log unconfirmation
+      await AuditLogger.logReportUnconfirmation(userId, reportId, req);
+      
       // Broadcast unconfirmation to all connected WebSocket clients
       if (unconfirmedReport) {
         broadcastToAll({ type: "report_unconfirmed", data: unconfirmedReport });
@@ -363,7 +387,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin routes for disaster management
-  app.post("/api/admin/reports/:reportId/flag", isAuthenticated, async (req: any, res) => {
+  app.post("/api/admin/reports/:reportId/flag", isAuthenticated, authLimiter, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { reportId } = req.params;
@@ -393,6 +417,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!report) {
         return res.status(404).json({ message: "Report not found" });
       }
+
+      // Log flagging action
+      await AuditLogger.logReportFlag(userId, reportId, flagType, req);
 
       // Broadcast flag update to all connected WebSocket clients
       broadcastToAll({ type: "report_flagged", data: report });
@@ -427,6 +454,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!report) {
         return res.status(404).json({ message: "Report not found" });
       }
+
+      // Log unflagging
+      await AuditLogger.logReportUnflag(userId, reportId, req);
 
       // Broadcast unflag update to all connected WebSocket clients
       broadcastToAll({ type: "report_unflagged", data: report });
@@ -515,6 +545,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Report not found" });
       }
 
+      // Log assignment
+      await AuditLogger.logReportAssignment(userId, reportId, volunteerId, req);
+
       // Broadcast assignment to all connected WebSocket clients
       broadcastToAll({ type: "report_assigned", data: report });
 
@@ -548,6 +581,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!report) {
         return res.status(404).json({ message: "Report not found" });
       }
+
+      // Log unassignment
+      await AuditLogger.logReportUnassignment(userId, reportId, req);
 
       // Broadcast unassignment to all connected WebSocket clients
       broadcastToAll({ type: "report_unassigned", data: report });
@@ -679,7 +715,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/resource-requests", isAuthenticated, async (req: any, res) => {
+  app.post("/api/resource-requests", isAuthenticated, resourceRequestLimiter, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const validatedData = insertResourceRequestSchema.parse({
@@ -753,6 +789,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!request) {
         return res.status(404).json({ message: "Resource request not found" });
       }
+
+      // Log resource fulfillment
+      await AuditLogger.logResourceFulfillment(userId, requestId, req);
 
       // Broadcast fulfillment to all connected WebSocket clients
       broadcastToAll({ type: "resource_request_fulfilled", data: request });
@@ -1692,7 +1731,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Message Routes
-  app.post("/api/chat/rooms/:roomId/messages", isAuthenticated, async (req: any, res) => {
+  app.post("/api/chat/rooms/:roomId/messages", isAuthenticated, messageLimiter, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { roomId } = req.params;
@@ -1756,7 +1795,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/chat/rooms/:roomId/ai-assist", isAuthenticated, async (req: any, res) => {
+  app.post("/api/chat/rooms/:roomId/ai-assist", isAuthenticated, aiRequestLimiter, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { roomId } = req.params;

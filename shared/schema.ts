@@ -8,6 +8,7 @@ import {
   pgEnum,
   index,
   jsonb,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -457,12 +458,18 @@ export const messages = pgTable("messages", {
   content: text("content").notNull(),
   messageType: messageTypeEnum("message_type").notNull().default("text"),
   metadata: jsonb("metadata"),
+  encryptionIv: varchar("encryption_iv", { length: 32 }),
+  encryptionTag: varchar("encryption_tag", { length: 32 }),
+  isEncrypted: boolean("is_encrypted").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertMessageSchema = createInsertSchema(messages).omit({
   id: true,
   createdAt: true,
+  encryptionIv: true,
+  encryptionTag: true,
+  isEncrypted: true,
 });
 
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
