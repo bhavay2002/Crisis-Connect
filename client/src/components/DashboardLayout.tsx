@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import RoleBadge from "@/components/RoleBadge";
 import TrustScoreBadge from "@/components/TrustScoreBadge";
+import { NotificationBell } from "@/components/NotificationBell";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,7 +34,6 @@ import {
   FileText,
   Users,
   BarChart3,
-  Bell,
   User,
   Settings,
   LogOut,
@@ -62,7 +62,6 @@ const menuItems = [
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [location] = useLocation();
   const [isDark, setIsDark] = useState(false);
-  const [notifications] = useState(3);
   const { user } = useAuth();
 
   const { data: reputation } = useQuery({
@@ -135,18 +134,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 )}
               </Button>
 
-              <Button
-                variant="ghost"
-                size="icon"
-                className="relative"
-                data-testid="button-notifications"
-                onClick={() => console.log("Notifications clicked")}
-              >
-                <Bell className="w-5 h-5" />
-                {notifications > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
-                )}
-              </Button>
+              <NotificationBell />
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

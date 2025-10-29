@@ -22,6 +22,8 @@ import AdminDashboard from "@/pages/feed/AdminDashboard";
 import VolunteerDashboard from "@/pages/VolunteerDashboard";
 import ResourceManagement from "@/pages/ResourceManagement";
 import AnalyticsDashboard from "@/pages/feed/AnalyticsDashboard";
+import Notifications from "@/pages/Notifications";
+import NotificationPreferences from "@/pages/NotificationPreferences";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -62,6 +64,8 @@ function Router() {
           <Route path="/admin" component={AdminDashboard} />
           <Route path="/resource-management" component={ResourceManagement} />
           <Route path="/analytics" component={AnalyticsDashboard} />
+          <Route path="/notifications" component={Notifications} />
+          <Route path="/notification-preferences" component={NotificationPreferences} />
           <Route path="/select-role" component={RoleSelection} />
           <Route path="/my-reports" component={Dashboard} />
           <Route path="/teams" component={Dashboard} />

@@ -13,7 +13,9 @@ import {
   insertSOSAlertSchema,
   insertChatRoomSchema,
   insertChatRoomMemberSchema,
-  insertMessageSchema
+  insertMessageSchema,
+  insertNotificationSchema,
+  insertNotificationPreferencesSchema
 } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
@@ -29,6 +31,7 @@ import {
   authLimiter
 } from "./rateLimiting";
 import { AuditLogger } from "./auditLog";
+import { NotificationService } from "./notificationService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication middleware
@@ -207,6 +210,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Broadcast new report to all connected WebSocket clients
       broadcastToAll({ type: "new_report", data: report });
       
+      // Notify nearby volunteers and NGOs about the new disaster
+      await NotificationService.notifyNearbyVolunteers(
+        report.id,
+        report.title,
+        report.location,
+        report.latitude,
+        report.longitude,
+        report.severity,
+        broadcastToAll
+      );
+      
       res.status(201).json(report);
     } catch (error: any) {
       if (error.name === "ZodError") {
@@ -237,6 +251,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Broadcast status update to all connected WebSocket clients
       broadcastToAll({ type: "report_updated", data: report });
+
+      // Notify report creator of status changes
+      if (status === "verified" && report.userId) {
+        await NotificationService.notifyDisasterVerified(
+          report.userId,
+          report.title,
+          report.id,
+          broadcastToAll
+        );
+      } else if (status === "resolved" && report.userId) {
+        await NotificationService.notifyDisasterResolved(
+          report.userId,
+          report.title,
+          report.id,
+          broadcastToAll
+        );
+      }
 
       res.json(report);
     } catch (error) {
@@ -335,6 +366,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Broadcast confirmation to all connected WebSocket clients
       if (confirmedReport) {
         broadcastToAll({ type: "report_confirmed", data: confirmedReport });
+        
+        // Notify the report creator that their report was confirmed
+        if (confirmedReport.userId) {
+          await NotificationService.notifyReportConfirmed(
+            confirmedReport.userId,
+            confirmedReport.title,
+            confirmedReport.id,
+            broadcastToAll
+          );
+        }
       }
 
       res.json(confirmedReport);
@@ -550,6 +591,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Broadcast assignment to all connected WebSocket clients
       broadcastToAll({ type: "report_assigned", data: report });
+
+      // Notify the assigned volunteer
+      await NotificationService.notifyReportAssigned(
+        volunteerId,
+        report.title,
+        report.id,
+        broadcastToAll
+      );
 
       res.json(report);
     } catch (error) {
@@ -1395,6 +1444,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Broadcast new SOS alert to all connected WebSocket clients
       broadcastToAll({ type: "new_sos_alert", data: sosAlert });
 
+      // Notify nearby responders about the SOS alert
+      await NotificationService.notifyNearbyRespondersForSOS(
+        sosAlert.id,
+        sosAlert.location,
+        sosAlert.latitude,
+        sosAlert.longitude,
+        sosAlert.emergencyType,
+        sosAlert.severity,
+        broadcastToAll
+      );
+
       res.status(201).json(sosAlert);
     } catch (error: any) {
       if (error.name === "ZodError") {
@@ -1873,6 +1933,151 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error getting AI assistance:", error);
       res.status(500).json({ message: "Failed to get AI assistance" });
+    }
+  });
+
+  // Notification routes
+  app.get("/api/notifications", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const notifications = await storage.getUserNotifications(userId, limit);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  app.get("/api/notifications/unread", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const notifications = await storage.getUnreadNotifications(userId);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching unread notifications:", error);
+      res.status(500).json({ message: "Failed to fetch unread notifications" });
+    }
+  });
+
+  app.get("/api/notifications/unread/count", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const count = await storage.getUnreadNotificationCount(userId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching unread notification count:", error);
+      res.status(500).json({ message: "Failed to fetch unread notification count" });
+    }
+  });
+
+  app.patch("/api/notifications/:id/read", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+
+      const notification = await storage.getNotification(id);
+      if (!notification) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+
+      if (notification.userId !== userId) {
+        return res.status(403).json({ message: "You can only mark your own notifications as read" });
+      }
+
+      const updatedNotification = await storage.markNotificationAsRead(id);
+      res.json(updatedNotification);
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ message: "Failed to mark notification as read" });
+    }
+  });
+
+  app.patch("/api/notifications/mark-all-read", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      await storage.markAllNotificationsAsRead(userId);
+      res.json({ message: "All notifications marked as read" });
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      res.status(500).json({ message: "Failed to mark all notifications as read" });
+    }
+  });
+
+  app.delete("/api/notifications/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { id } = req.params;
+
+      const notification = await storage.getNotification(id);
+      if (!notification) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+
+      if (notification.userId !== userId) {
+        return res.status(403).json({ message: "You can only delete your own notifications" });
+      }
+
+      await storage.deleteNotification(id);
+      res.json({ message: "Notification deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      res.status(500).json({ message: "Failed to delete notification" });
+    }
+  });
+
+  app.delete("/api/notifications", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      await storage.deleteAllUserNotifications(userId);
+      res.json({ message: "All notifications deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting all notifications:", error);
+      res.status(500).json({ message: "Failed to delete all notifications" });
+    }
+  });
+
+  // Notification preferences routes
+  app.get("/api/notifications/preferences", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      let preferences = await storage.getNotificationPreferences(userId);
+      
+      if (!preferences) {
+        preferences = await storage.createNotificationPreferences({ userId });
+      }
+      
+      res.json(preferences);
+    } catch (error) {
+      console.error("Error fetching notification preferences:", error);
+      res.status(500).json({ message: "Failed to fetch notification preferences" });
+    }
+  });
+
+  app.patch("/api/notifications/preferences", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validatedData = insertNotificationPreferencesSchema.partial().parse(req.body);
+      
+      let preferences = await storage.getNotificationPreferences(userId);
+      
+      if (!preferences) {
+        preferences = await storage.createNotificationPreferences({
+          userId,
+          ...validatedData,
+        });
+      } else {
+        preferences = await storage.updateNotificationPreferences(userId, validatedData);
+      }
+      
+      res.json(preferences);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      console.error("Error updating notification preferences:", error);
+      res.status(500).json({ message: "Failed to update notification preferences" });
     }
   });
 

@@ -30,7 +30,15 @@ Preferred communication style: Simple, everyday language.
 -   **Report Submission**: Multi-step form for emergency type, severity, GPS capture, photo/video upload (Uppy to S3-compatible storage), AI validation for legitimacy.
 -   **Resource Request System**: Allows victims to request resources (food, water, shelter, medical, etc.) with urgency and location. Includes real-time updates and status tracking.
 -   **Aid Offers System**: Enables volunteers to list available resources with GPS for proximity matching. Features an AI-powered matching interface for resource requests, commitment functionality, and status tracking.
--   Real-time notifications via toast messages.
+-   **Notification System**: Comprehensive real-time notification system with:
+    -   Real-time WebSocket delivery for instant alerts
+    -   Priority-based notifications (critical, high, medium, low)
+    -   Notification types: disaster_nearby, disaster_assigned, sos_alert_nearby, resource_request_created, resource_request_fulfilled, report_confirmed, report_disputed, volunteer_assigned, ngo_assigned, status_update
+    -   NotificationBell component with badge count and dropdown
+    -   Full notifications page with all/unread tabs
+    -   User preferences page for customizing alert settings
+    -   Mark as read/unread and delete functionality
+    -   Action URLs for quick navigation to relevant content
 -   Responsive sidebar navigation with role-based menu items.
 
 ### Backend Architecture
@@ -51,6 +59,8 @@ Preferred communication style: Simple, everyday language.
 -   **Verifications**: Links users to reports to prevent duplicate votes.
 -   **Resource Requests**: Type, urgency, status, quantity, description, location, GPS, requester ID, fulfillment tracking.
 -   **Aid Offers**: Type, status, quantity, description, location, GPS, offer creator ID, matching tracking.
+-   **Notifications**: Type, priority, title, message, action URL, user ID, read status, creation and read timestamps, metadata.
+-   **Notification Preferences**: User ID with boolean toggles for each notification type to customize alert settings.
 **Indexes**: On session expiration.
 **Migrations**: Drizzle Kit.
 

@@ -474,3 +474,81 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
 
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
+
+// Notification types and priority enums
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "disaster_nearby",
+  "disaster_verified",
+  "disaster_resolved",
+  "sos_alert",
+  "resource_request",
+  "resource_fulfilled",
+  "aid_matched",
+  "report_assigned",
+  "report_confirmed",
+  "low_inventory",
+  "system_alert",
+]);
+
+export const notificationPriorityEnum = pgEnum("notification_priority", [
+  "low",
+  "medium",
+  "high",
+  "critical",
+]);
+
+// Notifications table
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id")
+    .notNull()
+    .references(() => users.id),
+  type: notificationTypeEnum("type").notNull(),
+  priority: notificationPriorityEnum("priority").notNull().default("medium"),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  actionUrl: text("action_url"),
+  relatedEntityId: varchar("related_entity_id"),
+  relatedEntityType: varchar("related_entity_type"),
+  metadata: jsonb("metadata"),
+  isRead: boolean("is_read").notNull().default(false),
+  readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  isRead: true,
+  readAt: true,
+  createdAt: true,
+});
+
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;
+
+// Notification preferences table
+export const notificationPreferences = pgTable("notification_preferences", {
+  userId: varchar("user_id")
+    .primaryKey()
+    .references(() => users.id),
+  disasterNearby: boolean("disaster_nearby").notNull().default(true),
+  disasterVerified: boolean("disaster_verified").notNull().default(true),
+  disasterResolved: boolean("disaster_resolved").notNull().default(true),
+  sosAlert: boolean("sos_alert").notNull().default(true),
+  resourceRequest: boolean("resource_request").notNull().default(true),
+  resourceFulfilled: boolean("resource_fulfilled").notNull().default(true),
+  aidMatched: boolean("aid_matched").notNull().default(true),
+  reportAssigned: boolean("report_assigned").notNull().default(true),
+  reportConfirmed: boolean("report_confirmed").notNull().default(true),
+  lowInventory: boolean("low_inventory").notNull().default(true),
+  systemAlert: boolean("system_alert").notNull().default(true),
+  notificationRadius: integer("notification_radius").notNull().default(50),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertNotificationPreferencesSchema = createInsertSchema(notificationPreferences).omit({
+  updatedAt: true,
+});
+
+export type InsertNotificationPreferences = z.infer<typeof insertNotificationPreferencesSchema>;
+export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
