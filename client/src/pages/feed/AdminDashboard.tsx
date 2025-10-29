@@ -61,9 +61,13 @@ export default function AdminDashboard() {
   const [adminNotes, setAdminNotes] = useState("");
   const [selectedVolunteer, setSelectedVolunteer] = useState<string>("");
   const [activeTab, setActiveTab] = useState("all");
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [roleDialogOpen, setRoleDialogOpen] = useState(false);
+  const [newRole, setNewRole] = useState<string>("");
 
   // Check if user is admin or NGO
   const isAuthorized = user?.role === "admin" || user?.role === "ngo";
+  const isAdmin = user?.role === "admin";
 
   // Fetch all reports
   const { data: allReports = [], isLoading } = useQuery<DisasterReport[]>({
@@ -86,6 +90,12 @@ export default function AdminDashboard() {
   const { data: assignableUsers = [], isLoading: isLoadingUsers } = useQuery<User[]>({
     queryKey: ["/api/admin/assignable-users"],
     enabled: isAuthorized,
+  });
+
+  // Fetch all users for management (admin only)
+  const { data: allUsers = [], isLoading: isLoadingAllUsers } = useQuery<User[]>({
+    queryKey: ["/api/admin/users"],
+    enabled: isAdmin,
   });
 
   // Flag report mutation
@@ -201,6 +211,41 @@ export default function AdminDashboard() {
     },
   });
 
+  // Update user role mutation
+  const updateUserRoleMutation = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
+      return await apiRequest("POST", `/api/admin/users/${userId}/role`, { role });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Role updated",
+        description: "User role has been updated successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/assignable-users"] });
+      setRoleDialogOpen(false);
+      setSelectedUser(null);
+    },
+    onError: (error: any) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update user role",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleFlagReport = () => {
     if (selectedReport) {
       flagReportMutation.mutate({
@@ -225,6 +270,15 @@ export default function AdminDashboard() {
       addNotesMutation.mutate({
         reportId: selectedReport.id,
         notes: adminNotes,
+      });
+    }
+  };
+
+  const handleUpdateUserRole = () => {
+    if (selectedUser && newRole) {
+      updateUserRoleMutation.mutate({
+        userId: selectedUser.id,
+        role: newRole,
       });
     }
   };
@@ -394,6 +448,12 @@ export default function AdminDashboard() {
               <Flag className="w-4 h-4 mr-2" />
               Flagged
             </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="users" data-testid="tab-users">
+                <Users className="w-4 h-4 mr-2" />
+                User Management
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value={activeTab} className="mt-6">
@@ -535,6 +595,77 @@ export default function AdminDashboard() {
               </div>
             )}
           </TabsContent>
+
+          {/* User Management Tab (Admin Only) */}
+          {isAdmin && (
+            <TabsContent value="users" className="mt-6">
+              {isLoadingAllUsers ? (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Loading users...</p>
+                  </CardContent>
+                </Card>
+              ) : allUsers.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <p className="text-muted-foreground">No users found</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4">
+                  {allUsers.map((usr) => (
+                    <Card key={usr.id} data-testid={`user-card-${usr.id}`}>
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <CardTitle>{usr.name || usr.email}</CardTitle>
+                              <Badge variant="outline" className="capitalize">
+                                {usr.role || "citizen"}
+                              </Badge>
+                            </div>
+                            <CardDescription>
+                              <div className="flex flex-col gap-1 text-sm">
+                                <span>Email: {usr.email}</span>
+                                {usr.phoneNumber && (
+                                  <span>Phone: {usr.phoneNumber}</span>
+                                )}
+                                <span className="text-xs text-muted-foreground">
+                                  Joined: {new Date(usr.createdAt).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </CardDescription>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardFooter className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedUser(usr);
+                            setNewRole(usr.role || "citizen");
+                            setRoleDialogOpen(true);
+                          }}
+                          disabled={usr.id === user?.id}
+                          data-testid={`button-change-role-${usr.id}`}
+                        >
+                          <UserPlus className="w-4 h-4 mr-2" />
+                          Change Role
+                        </Button>
+                        {usr.id === user?.id && (
+                          <Badge variant="secondary" className="ml-2">
+                            You
+                          </Badge>
+                        )}
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          )}
         </Tabs>
 
         {/* Flag Dialog */}
@@ -653,6 +784,49 @@ export default function AdminDashboard() {
               </Button>
               <Button onClick={handleAddNotes} disabled={!adminNotes.trim()} data-testid="button-save-notes">
                 Save Notes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Change Role Dialog */}
+        <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Change User Role</DialogTitle>
+              <DialogDescription>
+                Update the role for {selectedUser?.name || selectedUser?.email}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <Select value={newRole} onValueChange={setNewRole}>
+                <SelectTrigger data-testid="select-new-role">
+                  <SelectValue placeholder="Select new role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="citizen">Citizen</SelectItem>
+                  <SelectItem value="volunteer">Volunteer</SelectItem>
+                  <SelectItem value="ngo">NGO</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="bg-yellow-50 dark:bg-yellow-950 p-3 rounded-md">
+                <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                  <strong>Note:</strong> Changing user roles affects their access permissions. 
+                  Admin roles have full system access.
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRoleDialogOpen(false)} data-testid="button-cancel-role">
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleUpdateUserRole} 
+                disabled={!newRole || newRole === selectedUser?.role}
+                data-testid="button-confirm-role"
+              >
+                Update Role
               </Button>
             </DialogFooter>
           </DialogContent>

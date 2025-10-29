@@ -1,9 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, MapPin, Clock, Users, TrendingUp, AlertTriangle, CheckCircle, Package } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { BarChart3, MapPin, Clock, Users, TrendingUp, AlertTriangle, CheckCircle, Package, Download, FileJson, FileSpreadsheet } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
@@ -17,6 +24,37 @@ interface AnalyticsSummary {
   aidOffered: number;
   aidDelivered: number;
   avgResponseTime: number;
+}
+
+// Utility function to convert data to CSV
+function convertToCSV(data: any[], headers: string[]): string {
+  const csvRows = [];
+  csvRows.push(headers.join(','));
+  
+  for (const row of data) {
+    const values = headers.map(header => {
+      const value = row[header];
+      return typeof value === 'string' && value.includes(',') 
+        ? `"${value}"` 
+        : value;
+    });
+    csvRows.push(values.join(','));
+  }
+  
+  return csvRows.join('\n');
+}
+
+// Utility function to download data as file
+function downloadFile(content: string, filename: string, type: string) {
+  const blob = new Blob([content], { type });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
 }
 
 export default function AnalyticsDashboard() {
@@ -94,12 +132,129 @@ export default function AnalyticsDashboard() {
     ? Math.round(summary.avgResponseTime / 60000)
     : 0;
 
+  // Export handlers
+  const handleExportCSV = () => {
+    const timestamp = new Date().toISOString().split('T')[0];
+    
+    // Build comprehensive CSV with multiple sections
+    let csvContent = '';
+    
+    // Section 1: Summary Metrics
+    csvContent += 'SUMMARY METRICS\n';
+    csvContent += 'Metric,Value,Period\n';
+    csvContent += `Total Reports Submitted,${summary?.reportSubmitted || 0},Last 30 days\n`;
+    csvContent += `Reports Verified,${summary?.reportVerified || 0},Last 30 days\n`;
+    csvContent += `Reports Resolved,${summary?.reportResolved || 0},Last 30 days\n`;
+    csvContent += `Resource Requests,${summary?.resourceRequested || 0},Last 30 days\n`;
+    csvContent += `Resources Fulfilled,${summary?.resourceFulfilled || 0},Last 30 days\n`;
+    csvContent += `Aid Offered,${summary?.aidOffered || 0},Last 30 days\n`;
+    csvContent += `Aid Delivered,${summary?.aidDelivered || 0},Last 30 days\n`;
+    csvContent += `Average Response Time (minutes),${responseTime},Last 30 days\n`;
+    csvContent += '\n';
+    
+    // Section 2: Disaster Frequency
+    csvContent += 'DISASTER FREQUENCY BY TYPE\n';
+    csvContent += 'Disaster Type,Count\n';
+    if (disasterFrequency && Object.keys(disasterFrequency).length > 0) {
+      Object.entries(disasterFrequency).forEach(([type, count]) => {
+        csvContent += `${type.charAt(0).toUpperCase() + type.slice(1)},${count}\n`;
+      });
+    } else {
+      csvContent += 'No data available\n';
+    }
+    csvContent += '\n';
+    
+    // Section 3: Reports by Severity
+    csvContent += 'REPORTS BY SEVERITY\n';
+    csvContent += 'Severity Level,Count\n';
+    if (Object.keys(severityData).length > 0) {
+      Object.entries(severityData).forEach(([severity, count]) => {
+        csvContent += `${severity.charAt(0).toUpperCase() + severity.slice(1)},${count}\n`;
+      });
+    } else {
+      csvContent += 'No data available\n';
+    }
+    csvContent += '\n';
+    
+    // Section 4: Reports by Status
+    csvContent += 'REPORTS BY STATUS\n';
+    csvContent += 'Status,Count\n';
+    if (Object.keys(statusData).length > 0) {
+      Object.entries(statusData).forEach(([status, count]) => {
+        csvContent += `${status.charAt(0).toUpperCase() + status.slice(1)},${count}\n`;
+      });
+    } else {
+      csvContent += 'No data available\n';
+    }
+    csvContent += '\n';
+    
+    // Section 5: Top Incident Hotspots
+    csvContent += 'TOP INCIDENT HOTSPOTS\n';
+    csvContent += 'Coordinates (Lat,Lon),Number of Incidents\n';
+    if (topHotspots.length > 0) {
+      topHotspots.forEach(({ coordinates, incidents }) => {
+        csvContent += `"${coordinates}",${incidents}\n`;
+      });
+    } else {
+      csvContent += 'No data available\n';
+    }
+    
+    downloadFile(csvContent, `crisis-connect-analytics-${timestamp}.csv`, 'text/csv');
+  };
+
+  const handleExportJSON = () => {
+    const timestamp = new Date().toISOString().split('T')[0];
+    
+    // Prepare comprehensive report data
+    const reportData = {
+      generatedAt: new Date().toISOString(),
+      period: 'Last 30 days',
+      summary: {
+        totalReports: summary?.reportSubmitted || 0,
+        verifiedReports: summary?.reportVerified || 0,
+        resolvedReports: summary?.reportResolved || 0,
+        resourceRequests: summary?.resourceRequested || 0,
+        resourcesFulfilled: summary?.resourceFulfilled || 0,
+        aidOffered: summary?.aidOffered || 0,
+        aidDelivered: summary?.aidDelivered || 0,
+        averageResponseTimeMinutes: responseTime
+      },
+      disasterFrequency: disasterFrequency,
+      reportsBySeverity: severityData,
+      reportsByStatus: statusData,
+      topIncidentHotspots: topHotspots
+    };
+
+    const json = JSON.stringify(reportData, null, 2);
+    downloadFile(json, `crisis-connect-analytics-${timestamp}.json`, 'application/json');
+  };
+
   return (
     <DashboardLayout>
       <div className="container mx-auto p-6 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold" data-testid="text-page-title">Analytics Dashboard</h1>
-          <p className="text-muted-foreground">Comprehensive insights and performance metrics</p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold" data-testid="text-page-title">Analytics Dashboard</h1>
+            <p className="text-muted-foreground">Comprehensive insights and performance metrics</p>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" data-testid="button-export">
+                <Download className="w-4 h-4 mr-2" />
+                Export Report
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleExportCSV} data-testid="menu-item-export-csv">
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                Download as CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportJSON} data-testid="menu-item-export-json">
+                <FileJson className="w-4 h-4 mr-2" />
+                Download as JSON
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

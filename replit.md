@@ -22,6 +22,10 @@ Preferred communication style: Simple, everyday language.
 **Key Features**:
 -   **Dashboard**: Statistics, active reports with filtering.
 -   **Volunteer Hub**: Comprehensive dashboard for volunteers/NGOs with demand-supply overview, pending resource requests, aid offer management, and report verification queue. Includes real-time metrics and AI-powered insights.
+-   **Admin Dashboard**: Admin-only control panel with three key modules:
+    -   **User Management**: View all users, assign roles (Citizen, Volunteer, NGO, Admin) with security controls preventing self-demotion and unauthorized admin provisioning.
+    -   **Report Moderation**: Enhanced verification interface with flagging (false report, duplicate, spam), report assignment to volunteers, admin notes, and status controls for managing disaster reports.
+    -   **Analytics Export**: Generate comprehensive government reports in CSV or JSON format including summary metrics, disaster frequency by type, severity/status breakdowns, and incident hotspots.
 -   **Interactive Map**: Leaflet with OpenStreetMap, color-coded severity markers, filtering, clickable report previews, detailed report view with AI validation score and media.
 -   **Report Submission**: Multi-step form for emergency type, severity, GPS capture, photo/video upload (Uppy to S3-compatible storage), AI validation for legitimacy.
 -   **Resource Request System**: Allows victims to request resources (food, water, shelter, medical, etc.) with urgency and location. Includes real-time updates and status tracking.
