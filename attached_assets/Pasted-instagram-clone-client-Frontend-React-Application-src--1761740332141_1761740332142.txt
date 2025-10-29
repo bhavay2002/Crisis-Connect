@@ -1,0 +1,65 @@
+instagram-clone/
+├── client/                     # Frontend React Application
+│   ├── src/
+│   │   ├── components/         # Reusable UI components
+│   │   │   ├── ui/            # shadcn/ui components
+│   │   │   ├── forms/         # Form components
+│   │   │   ├── layout/        # Layout components
+│   │   │   └── feed/          # Feed-specific components
+│   │   ├── pages/             # Page components
+│   │   │   ├── auth/          # Authentication pages
+│   │   │   ├── feed/          # Main feed and timeline
+│   │   │   ├── profile/       # User profiles
+│   │   │   ├── messages/      # Direct messaging
+│   │   │   ├── explore/       # Content discovery
+│   │   │   └── notifications/ # Activity notifications
+│   │   ├── hooks/             # Custom React hooks
+│   │   ├── lib/               # Utilities and configurations
+│   │   └── types/             # Frontend-specific types
+│   └── index.html             # HTML template
+├── server/                     # Backend Express API
+│   ├── auth/                  # Authentication configuration
+│   │   ├── passport.ts        # Passport strategies
+│   │   └── session.ts         # Session management
+│   ├── controllers/           # Business logic controllers
+│   │   ├── auth.controller.ts    # Authentication logic
+│   │   ├── posts.controller.ts   # Post management
+│   │   ├── users.controller.ts   # User management
+│   │   ├── messages.controller.ts # Messaging logic
+│   │   ├── comments.controller.ts # Comment system
+│   │   ├── follows.controller.ts  # Social relationships
+│   │   ├── stories.controller.ts  # Stories feature
+│   │   └── notifications.controller.ts # Notifications
+│   ├── routes/                # API route definitions
+│   │   ├── auth.routes.ts     # Authentication endpoints
+│   │   ├── posts.routes.ts    # Post-related endpoints
+│   │   ├── users.routes.ts    # User management endpoints
+│   │   ├── messages.routes.ts # Messaging endpoints
+│   │   └── index.ts           # Route aggregation
+│   ├── middleware/            # Express middleware
+│   │   ├── isAuthenticated.ts # Auth protection
+│   │   ├── validate.ts        # Request validation
+│   │   ├── rateLimiter.ts     # Rate limiting
+│   │   ├── errorHandler.ts    # Error handling
+│   │   └── logger.ts          # Request logging
+│   ├── db/                    # Database configuration
+│   │   └── db.ts              # Connection and setup
+│   ├── socket/                # WebSocket implementation
+│   │   └── index.ts           # Real-time communication
+│   ├── types/                 # Backend-specific types
+│   ├── utils/                 # Utility functions
+│   ├── validators/            # Zod validation schemas
+│   ├── storage.ts             # Data access layer
+│   ├── index.ts               # Application entry point
+│   └── vite.ts                # Vite integration
+├── shared/                     # Shared TypeScript definitions
+│   └── schema.ts              # Database schema and types
+├── attached_assets/           # Static assets and uploads
+└── Configuration files
+    ├── package.json           # Dependencies and scripts
+    ├── tsconfig.json          # TypeScript configuration
+    ├── vite.config.ts         # Vite bundler config
+    ├── tailwind.config.ts     # Tailwind CSS config
+    ├── drizzle.config.ts      # Database ORM config
+    └── postcss.config.js      # PostCSS configuration
+```

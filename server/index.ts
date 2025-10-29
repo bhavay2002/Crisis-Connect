@@ -1,6 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
-import { registerRoutes } from "./routes";
+import { registerRoutes } from "./routes/index";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();

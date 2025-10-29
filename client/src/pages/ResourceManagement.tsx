@@ -12,7 +12,7 @@ import { AlertCircle, Package, Plus, Trash2, TrendingUp, TrendingDown, AlertTria
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { InventoryItem } from "@shared/schema";
-import DashboardLayout from "@/components/DashboardLayout";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 
 export default function ResourceManagement() {
   const { toast } = useToast();

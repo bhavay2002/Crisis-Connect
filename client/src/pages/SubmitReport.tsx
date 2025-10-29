@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { UploadResult } from "@uppy/core";
-import DashboardLayout from "@/components/DashboardLayout";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +18,7 @@ import { AlertTriangle, MapPin, FileText, Camera, CheckCircle, Navigation, X, Im
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { ObjectUploader } from "@/components/ObjectUploader";
+import { ObjectUploader } from "@/components/feed/ObjectUploader";
 import { Badge } from "@/components/ui/badge";
 
 export default function SubmitReport() {

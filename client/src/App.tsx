@@ -4,23 +4,23 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
 
 // Pages
-import Landing from "@/pages/Landing";
-import Dashboard from "@/pages/Dashboard";
-import ActiveReports from "@/pages/ActiveReports";
+import Landing from "@/pages/auth/Landing";
+import Dashboard from "@/pages/feed/Dashboard";
+import ActiveReports from "@/pages/feed/ActiveReports";
 import SubmitReport from "@/pages/SubmitReport";
-import RoleSelection from "@/pages/RoleSelection";
-import Map from "@/pages/Map";
+import RoleSelection from "@/pages/auth/RoleSelection";
+import Map from "@/pages/explore/Map";
 import ResourceRequests from "@/pages/ResourceRequests";
 import SubmitResourceRequest from "@/pages/SubmitResourceRequest";
 import AidOffers from "@/pages/AidOffers";
 import SubmitAidOffer from "@/pages/SubmitAidOffer";
 import AidOfferMatches from "@/pages/AidOfferMatches";
-import AdminDashboard from "@/pages/AdminDashboard";
+import AdminDashboard from "@/pages/feed/AdminDashboard";
 import ResourceManagement from "@/pages/ResourceManagement";
-import AnalyticsDashboard from "@/pages/AnalyticsDashboard";
+import AnalyticsDashboard from "@/pages/feed/AnalyticsDashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
