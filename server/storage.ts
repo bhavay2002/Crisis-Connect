@@ -7,10 +7,13 @@ import {
   type InsertVerification,
   type ResourceRequest,
   type InsertResourceRequest,
+  type AidOffer,
+  type InsertAidOffer,
   users,
   disasterReports,
   verifications,
   resourceRequests,
+  aidOffers,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
@@ -56,6 +59,19 @@ export interface IStorage {
     status: "pending" | "in_progress" | "fulfilled" | "cancelled"
   ): Promise<ResourceRequest | undefined>;
   fulfillResourceRequest(id: string, userId: string): Promise<ResourceRequest | undefined>;
+
+  // Aid offer operations
+  createAidOffer(offer: InsertAidOffer): Promise<AidOffer>;
+  getAidOffer(id: string): Promise<AidOffer | undefined>;
+  getAllAidOffers(): Promise<AidOffer[]>;
+  getAidOffersByUser(userId: string): Promise<AidOffer[]>;
+  getAvailableAidOffers(): Promise<AidOffer[]>;
+  updateAidOfferStatus(
+    id: string,
+    status: "available" | "committed" | "delivered" | "cancelled"
+  ): Promise<AidOffer | undefined>;
+  matchAidOfferToRequest(offerId: string, requestId: string): Promise<AidOffer | undefined>;
+  markAidOfferDelivered(offerId: string): Promise<AidOffer | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -284,6 +300,87 @@ export class DatabaseStorage implements IStorage {
       .where(eq(resourceRequests.id, id))
       .returning();
     return request;
+  }
+
+  // Aid offer operations
+  async createAidOffer(offer: InsertAidOffer): Promise<AidOffer> {
+    const [aidOffer] = await db
+      .insert(aidOffers)
+      .values(offer)
+      .returning();
+    return aidOffer;
+  }
+
+  async getAidOffer(id: string): Promise<AidOffer | undefined> {
+    const [offer] = await db
+      .select()
+      .from(aidOffers)
+      .where(eq(aidOffers.id, id));
+    return offer;
+  }
+
+  async getAllAidOffers(): Promise<AidOffer[]> {
+    return db
+      .select()
+      .from(aidOffers)
+      .orderBy(desc(aidOffers.createdAt));
+  }
+
+  async getAidOffersByUser(userId: string): Promise<AidOffer[]> {
+    return db
+      .select()
+      .from(aidOffers)
+      .where(eq(aidOffers.userId, userId))
+      .orderBy(desc(aidOffers.createdAt));
+  }
+
+  async getAvailableAidOffers(): Promise<AidOffer[]> {
+    return db
+      .select()
+      .from(aidOffers)
+      .where(eq(aidOffers.status, "available"))
+      .orderBy(desc(aidOffers.createdAt));
+  }
+
+  async updateAidOfferStatus(
+    id: string,
+    status: "available" | "committed" | "delivered" | "cancelled"
+  ): Promise<AidOffer | undefined> {
+    const [offer] = await db
+      .update(aidOffers)
+      .set({
+        status,
+        updatedAt: new Date(),
+      })
+      .where(eq(aidOffers.id, id))
+      .returning();
+    return offer;
+  }
+
+  async matchAidOfferToRequest(offerId: string, requestId: string): Promise<AidOffer | undefined> {
+    const [offer] = await db
+      .update(aidOffers)
+      .set({
+        matchedRequestId: requestId,
+        status: "committed",
+        updatedAt: new Date(),
+      })
+      .where(eq(aidOffers.id, offerId))
+      .returning();
+    return offer;
+  }
+
+  async markAidOfferDelivered(offerId: string): Promise<AidOffer | undefined> {
+    const [offer] = await db
+      .update(aidOffers)
+      .set({
+        status: "delivered",
+        deliveredAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(aidOffers.id, offerId))
+      .returning();
+    return offer;
   }
 }
 

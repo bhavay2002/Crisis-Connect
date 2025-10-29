@@ -3,10 +3,11 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertDisasterReportSchema, insertVerificationSchema, insertResourceRequestSchema } from "@shared/schema";
+import { insertDisasterReportSchema, insertVerificationSchema, insertResourceRequestSchema, insertAidOfferSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { AIValidationService } from "./aiValidation";
+import { AIMatchingService } from "./aiMatching";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication middleware
@@ -444,6 +445,259 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fulfilling resource request:", error);
       res.status(500).json({ message: "Failed to fulfill resource request" });
+    }
+  });
+
+  // Get AI-powered matches for a resource request
+  app.get("/api/resource-requests/:requestId/matches", isAuthenticated, async (req, res) => {
+    try {
+      const { requestId } = req.params;
+      const request = await storage.getResourceRequest(requestId);
+      
+      if (!request) {
+        return res.status(404).json({ message: "Resource request not found" });
+      }
+
+      // Get available aid offers
+      const availableOffers = await storage.getAvailableAidOffers();
+      
+      // Use AI matching service to find best matches
+      const matchingService = new AIMatchingService();
+      const matches = await matchingService.findMatchesForRequest(request, availableOffers);
+      
+      res.json(matches);
+    } catch (error) {
+      console.error("Error finding matches for resource request:", error);
+      res.status(500).json({ message: "Failed to find matches" });
+    }
+  });
+
+  // Aid offer routes
+  app.get("/api/aid-offers", isAuthenticated, async (req, res) => {
+    try {
+      const offers = await storage.getAllAidOffers();
+      // Sanitize contact info for non-owners
+      const sanitized = offers.map(offer => ({
+        ...offer,
+        contactInfo: undefined, // Remove contact info from list view for privacy
+      }));
+      res.json(sanitized);
+    } catch (error) {
+      console.error("Error fetching aid offers:", error);
+      res.status(500).json({ message: "Failed to fetch aid offers" });
+    }
+  });
+
+  app.get("/api/aid-offers/mine", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const offers = await storage.getAidOffersByUser(userId);
+      res.json(offers);
+    } catch (error) {
+      console.error("Error fetching user aid offers:", error);
+      res.status(500).json({ message: "Failed to fetch user aid offers" });
+    }
+  });
+
+  app.get("/api/aid-offers/:offerId", isAuthenticated, async (req: any, res) => {
+    try {
+      const { offerId } = req.params;
+      const userId = req.user.claims.sub;
+      const offer = await storage.getAidOffer(offerId);
+      
+      if (!offer) {
+        return res.status(404).json({ message: "Aid offer not found" });
+      }
+
+      // Only show contact info to the owner or when viewing matches
+      const user = await storage.getUser(userId);
+      const isOwner = offer.userId === userId;
+      const isAuthorized = user?.role && ["volunteer", "ngo", "admin"].includes(user.role);
+      
+      // Show full details to owner, sanitized to others
+      if (!isOwner && !isAuthorized) {
+        return res.json({
+          ...offer,
+          contactInfo: undefined,
+        });
+      }
+      
+      res.json(offer);
+    } catch (error) {
+      console.error("Error fetching aid offer:", error);
+      res.status(500).json({ message: "Failed to fetch aid offer" });
+    }
+  });
+
+  app.post("/api/aid-offers", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Get current user
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Only volunteer, NGO, or admin users can create aid offers
+      if (!user.role || !["volunteer", "ngo", "admin"].includes(user.role)) {
+        return res.status(403).json({ 
+          message: "Only verified volunteers, NGOs, and admins can create aid offers" 
+        });
+      }
+
+      const validatedData = insertAidOfferSchema.parse({
+        ...req.body,
+        userId,
+      });
+
+      const aidOffer = await storage.createAidOffer(validatedData);
+      
+      // Broadcast new aid offer to all connected WebSocket clients
+      broadcastToAll({ type: "new_aid_offer", data: aidOffer });
+
+      res.status(201).json(aidOffer);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      console.error("Error creating aid offer:", error);
+      res.status(500).json({ message: "Failed to create aid offer" });
+    }
+  });
+
+  app.patch("/api/aid-offers/:offerId/status", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { offerId } = req.params;
+      const { status } = req.body;
+
+      // Validate status
+      const validStatuses = ["available", "committed", "delivered", "cancelled"];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      // Check if offer exists and user owns it
+      const offer = await storage.getAidOffer(offerId);
+      if (!offer) {
+        return res.status(404).json({ message: "Aid offer not found" });
+      }
+
+      if (offer.userId !== userId) {
+        return res.status(403).json({ message: "You can only update your own aid offers" });
+      }
+
+      const updatedOffer = await storage.updateAidOfferStatus(offerId, status);
+      
+      // Broadcast status update to all connected WebSocket clients
+      broadcastToAll({ type: "aid_offer_updated", data: updatedOffer });
+
+      res.json(updatedOffer);
+    } catch (error) {
+      console.error("Error updating aid offer status:", error);
+      res.status(500).json({ message: "Failed to update aid offer status" });
+    }
+  });
+
+  app.post("/api/aid-offers/:offerId/commit", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { offerId } = req.params;
+      const { requestId } = req.body;
+
+      if (!requestId) {
+        return res.status(400).json({ message: "requestId is required" });
+      }
+
+      // Check if offer exists and user owns it
+      const offer = await storage.getAidOffer(offerId);
+      if (!offer) {
+        return res.status(404).json({ message: "Aid offer not found" });
+      }
+
+      if (offer.userId !== userId) {
+        return res.status(403).json({ message: "You can only commit your own aid offers" });
+      }
+
+      // Check if request exists
+      const request = await storage.getResourceRequest(requestId);
+      if (!request) {
+        return res.status(404).json({ message: "Resource request not found" });
+      }
+
+      // Match the offer to the request
+      const matchedOffer = await storage.matchAidOfferToRequest(offerId, requestId);
+      
+      // Update request status to in_progress
+      await storage.updateResourceRequestStatus(requestId, "in_progress");
+
+      // Broadcast commitment to all connected WebSocket clients
+      broadcastToAll({ type: "aid_offer_committed", data: { offer: matchedOffer, requestId } });
+
+      res.json(matchedOffer);
+    } catch (error) {
+      console.error("Error committing aid offer:", error);
+      res.status(500).json({ message: "Failed to commit aid offer" });
+    }
+  });
+
+  app.post("/api/aid-offers/:offerId/deliver", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { offerId } = req.params;
+
+      // Check if offer exists and user owns it
+      const offer = await storage.getAidOffer(offerId);
+      if (!offer) {
+        return res.status(404).json({ message: "Aid offer not found" });
+      }
+
+      if (offer.userId !== userId) {
+        return res.status(403).json({ message: "You can only mark your own aid offers as delivered" });
+      }
+
+      // Mark as delivered
+      const deliveredOffer = await storage.markAidOfferDelivered(offerId);
+      
+      // If matched to a request, mark that as fulfilled
+      if (offer.matchedRequestId) {
+        await storage.fulfillResourceRequest(offer.matchedRequestId, userId);
+      }
+
+      // Broadcast delivery to all connected WebSocket clients
+      broadcastToAll({ type: "aid_offer_delivered", data: deliveredOffer });
+
+      res.json(deliveredOffer);
+    } catch (error) {
+      console.error("Error marking aid offer as delivered:", error);
+      res.status(500).json({ message: "Failed to mark aid offer as delivered" });
+    }
+  });
+
+  // Get AI-powered matches for an aid offer
+  app.get("/api/aid-offers/:offerId/matches", isAuthenticated, async (req, res) => {
+    try {
+      const { offerId } = req.params;
+      const offer = await storage.getAidOffer(offerId);
+      
+      if (!offer) {
+        return res.status(404).json({ message: "Aid offer not found" });
+      }
+
+      // Get pending resource requests
+      const allRequests = await storage.getAllResourceRequests();
+      const pendingRequests = allRequests.filter(r => r.status === "pending");
+      
+      // Use AI matching service to find best matches
+      const matchingService = new AIMatchingService();
+      const matches = await matchingService.findMatchesForOffer(offer, pendingRequests);
+      
+      res.json(matches);
+    } catch (error) {
+      console.error("Error finding matches for aid offer:", error);
+      res.status(500).json({ message: "Failed to find matches" });
     }
   });
 

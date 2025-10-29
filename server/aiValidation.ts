@@ -1,10 +1,22 @@
 import OpenAI from "openai";
 import type { DisasterReport } from "../shared/schema";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+let openai: OpenAI | null = null;
+
+function getOpenAIClient(): OpenAI | null {
+  if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+    return null;
+  }
+  
+  if (!openai) {
+    openai = new OpenAI({
+      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    });
+  }
+  
+  return openai;
+}
 
 export interface AIValidationResult {
   score: number; // 0-100, where 100 is most credible
@@ -74,7 +86,18 @@ Consider:
 - Plausibility of the description
 - Type and severity match with description`;
 
-      const response = await openai.chat.completions.create({
+      const client = getOpenAIClient();
+      if (!client) {
+        console.warn("OpenAI API key not configured, skipping AI validation");
+        return {
+          score: 50,
+          notes: "AI validation unavailable - API key not configured",
+          isDuplicate: false,
+          isSuspicious: false,
+        };
+      }
+
+      const response = await client.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           {

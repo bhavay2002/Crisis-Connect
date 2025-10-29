@@ -188,3 +188,43 @@ export const insertResourceRequestSchema = createInsertSchema(resourceRequests).
 
 export type InsertResourceRequest = z.infer<typeof insertResourceRequestSchema>;
 export type ResourceRequest = typeof resourceRequests.$inferSelect;
+
+// Aid offer status enum
+export const aidOfferStatusEnum = pgEnum("aid_offer_status", [
+  "available",
+  "committed",
+  "delivered",
+  "cancelled",
+]);
+
+// Aid offers table - Volunteers can list available resources
+export const aidOffers = pgTable("aid_offers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  resourceType: resourceTypeEnum("resource_type").notNull(),
+  quantity: integer("quantity").notNull(),
+  status: aidOfferStatusEnum("status").notNull().default("available"),
+  description: text("description"),
+  location: text("location").notNull(),
+  latitude: text("latitude"),
+  longitude: text("longitude"),
+  contactInfo: text("contact_info"),
+  userId: varchar("user_id")
+    .notNull()
+    .references(() => users.id),
+  matchedRequestId: varchar("matched_request_id").references(() => resourceRequests.id),
+  deliveredAt: timestamp("delivered_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertAidOfferSchema = createInsertSchema(aidOffers).omit({
+  id: true,
+  status: true,
+  matchedRequestId: true,
+  deliveredAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAidOffer = z.infer<typeof insertAidOfferSchema>;
+export type AidOffer = typeof aidOffers.$inferSelect;

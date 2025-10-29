@@ -53,6 +53,21 @@ Preferred communication style: Simple, everyday language.
   - Real-time WebSocket updates when new requests are submitted or fulfilled
   - Volunteer/NGO/Admin users can mark requests as fulfilled
   - Status tracking (pending, in_progress, fulfilled, cancelled)
+- **Aid Offers System**: Volunteers can list available resources to help disaster victims:
+  - Submit offers for food, water, shelter, medical supplies, clothing, blankets, vehicles, or other resources
+  - Specify quantity available, location, and contact information
+  - GPS location capture for proximity-based matching
+  - View all aid offers with filtering by tabs (All Offers / My Offers)
+  - AI-powered matching interface showing recommended resource requests based on:
+    - Resource type compatibility
+    - Geographic proximity using GPS distance calculation
+    - Quantity availability vs. need
+    - Urgency priority
+  - Match scores (0-100%) with detailed reasoning from AI
+  - One-click commitment to fulfill specific resource requests
+  - Status tracking (available, matched, delivered)
+  - Real-time WebSocket updates when new offers are submitted or matched
+  - Privacy protection: contact info only visible to offer owner and authorized roles
 - Real-time notifications via toast messages
 - Responsive sidebar navigation with mobile sheet drawer
 
@@ -67,6 +82,11 @@ Preferred communication style: Simple, everyday language.
 - `/api/resource-requests` - CRUD operations for resource requests
 - `/api/resource-requests/mine` - Get current user's resource requests
 - `/api/resource-requests/:id/fulfill` - Mark request as fulfilled (volunteer/NGO/admin only)
+- `/api/resource-requests/:id/matches` - Get AI-matched aid offers for a specific request
+- `/api/aid-offers` - CRUD operations for aid offers (volunteer/NGO/admin only)
+- `/api/aid-offers/mine` - Get current user's aid offers
+- `/api/aid-offers/:id/matches` - Get AI-matched resource requests for a specific offer
+- `/api/aid-offers/:id/commit` - Commit aid offer to fulfill a specific resource request
 - `/api/objects/upload` - Generate signed upload URL for media files
 - `/api/objects/media` - Set ACL policies for uploaded media files
 - `/api/objects/:bucket/:path` - Serve protected media files with ACL checks
@@ -121,6 +141,19 @@ Preferred communication style: Simple, everyday language.
 - Fulfillment tracking: fulfilled_by user ID and fulfilled_at timestamp
 - Timestamps for creation/updates
 
+*Aid Offers Table*: Stores resource offers from volunteers/NGOs including:
+- Resource Type (enum: food, water, shelter, medical, clothing, blankets, vehicle, other)
+- Status (enum: available, matched, delivered) - defaults to "available"
+- Quantity (integer: number of units available)
+- Description (text: optional details about the offer)
+- Location (text: pickup/delivery location)
+- Contact Information (text: contact details, protected by access control)
+- GPS Coordinates: latitude and longitude (optional for proximity matching)
+- Offer creator user ID (foreign key)
+- Optional disaster report ID (links offer to specific incident)
+- Matching tracking: matched_to_request_id, matched_at timestamp
+- Timestamps for creation/updates
+
 **Indexes**: Created on session expiration for cleanup queries.
 
 **Database Migration**: Drizzle Kit configured for schema migrations with output to `/migrations` directory.
@@ -171,7 +204,10 @@ Preferred communication style: Simple, everyday language.
 
 **Database**: PostgreSQL database (via Neon serverless) referenced by `DATABASE_URL` environment variable. The application will fail to start if this variable is not set.
 
-**OpenAI Service**: AI-powered report validation via Replit AI Integrations (OpenAI). Uses GPT-4o-mini for analyzing report legitimacy and detecting duplicates. No API key required - billed to Replit credits. See `server/aiValidation.ts` for implementation.
+**OpenAI Service**: AI-powered features via Replit AI Integrations (OpenAI). Uses GPT-4o-mini for:
+- Report validation: Analyzing report legitimacy and detecting duplicates (`server/aiValidation.ts`)
+- Resource matching: Bidirectional matching between aid offers and resource requests based on type, location, quantity, and urgency (`server/aiMatching.ts`)
+No API key required - billed to Replit credits. OpenAI client is lazy-loaded to prevent crashes when API key is missing.
 
 **Object Storage**: Replit App Storage for secure photo/video uploads. Uses ACL (Access Control List) policies to ensure only authenticated users can upload and only authorized users can access media files. Configured via environment variables set by Replit. See `server/objectStorage.ts` and `server/objectAcl.ts` for implementation.
 

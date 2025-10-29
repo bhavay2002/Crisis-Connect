@@ -14,6 +14,9 @@ import RoleSelection from "@/pages/RoleSelection";
 import Map from "@/pages/Map";
 import ResourceRequests from "@/pages/ResourceRequests";
 import SubmitResourceRequest from "@/pages/SubmitResourceRequest";
+import AidOffers from "@/pages/AidOffers";
+import SubmitAidOffer from "@/pages/SubmitAidOffer";
+import AidOfferMatches from "@/pages/AidOfferMatches";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -47,6 +50,9 @@ function Router() {
           <Route path="/map" component={Map} />
           <Route path="/resource-requests" component={ResourceRequests} />
           <Route path="/submit-resource-request" component={SubmitResourceRequest} />
+          <Route path="/aid-offers" component={AidOffers} />
+          <Route path="/submit-aid-offer" component={SubmitAidOffer} />
+          <Route path="/aid-offers/:offerId/matches" component={AidOfferMatches} />
           <Route path="/select-role" component={RoleSelection} />
           <Route path="/my-reports" component={Dashboard} />
           <Route path="/teams" component={Dashboard} />
