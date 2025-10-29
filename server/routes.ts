@@ -1349,6 +1349,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/objects/upload", isAuthenticated, async (req, res) => {
     const objectStorageService = new ObjectStorageService();
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+    if (!uploadURL) {
+      return res.status(503).json({ 
+        error: "Object storage is not configured. Please set up PRIVATE_OBJECT_DIR environment variable." 
+      });
+    }
     res.json({ uploadURL });
   });
 

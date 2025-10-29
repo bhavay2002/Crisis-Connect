@@ -51,10 +51,11 @@ export class ObjectStorageService {
       )
     );
     if (paths.length === 0) {
-      throw new Error(
-        "PUBLIC_OBJECT_SEARCH_PATHS not set. Create a bucket in 'Object Storage' " +
-          "tool and set PUBLIC_OBJECT_SEARCH_PATHS env var (comma-separated paths)."
+      console.warn(
+        "PUBLIC_OBJECT_SEARCH_PATHS not set. Object storage is disabled. " +
+          "Create a bucket in 'Object Storage' tool and set PUBLIC_OBJECT_SEARCH_PATHS env var."
       );
+      return [];
     }
     return paths;
   }
@@ -62,10 +63,11 @@ export class ObjectStorageService {
   getPrivateObjectDir(): string {
     const dir = process.env.PRIVATE_OBJECT_DIR || "";
     if (!dir) {
-      throw new Error(
-        "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' " +
-          "tool and set PRIVATE_OBJECT_DIR env var."
+      console.warn(
+        "PRIVATE_OBJECT_DIR not set. Object storage is disabled. " +
+          "Create a bucket in 'Object Storage' tool and set PRIVATE_OBJECT_DIR env var."
       );
+      return "";
     }
     return dir;
   }
@@ -118,13 +120,10 @@ export class ObjectStorageService {
     }
   }
 
-  async getObjectEntityUploadURL(): Promise<string> {
+  async getObjectEntityUploadURL(): Promise<string | null> {
     const privateObjectDir = this.getPrivateObjectDir();
     if (!privateObjectDir) {
-      throw new Error(
-        "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' " +
-          "tool and set PRIVATE_OBJECT_DIR env var."
-      );
+      return null;
     }
 
     const objectId = randomUUID();

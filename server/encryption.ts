@@ -1,26 +1,47 @@
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
 const TAG_LENGTH = 16;
 const KEY_LENGTH = 32;
+const DEV_KEY_FILE = path.join(process.cwd(), '.dev-encryption-key');
 
 let encryptionKey: Buffer | null = null;
 
 function initializeEncryptionKey(): void {
-  const key = process.env.ENCRYPTION_KEY;
+  let key = process.env.ENCRYPTION_KEY;
   
   if (!key || key.length < 32) {
-    // Encryption is REQUIRED for secure message handling
-    // Fail fast to prevent deploying insecure systems
-    throw new Error(
-      "ENCRYPTION_KEY not set or too short. Message encryption is REQUIRED. " +
-      "Set ENCRYPTION_KEY environment variable (minimum 32 characters)"
-    );
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        "ENCRYPTION_KEY not set or too short. Message encryption is REQUIRED for production. " +
+        "Set ENCRYPTION_KEY environment variable (minimum 32 characters)"
+      );
+    }
+    
+    console.warn("⚠️  ENCRYPTION_KEY not set. Using auto-generated key for DEVELOPMENT ONLY.");
+    console.warn("⚠️  For production, set a secure ENCRYPTION_KEY environment variable.");
+    
+    try {
+      if (fs.existsSync(DEV_KEY_FILE)) {
+        key = fs.readFileSync(DEV_KEY_FILE, 'utf8').trim();
+        console.log("📁 Loaded development encryption key from file");
+      } else {
+        key = crypto.randomBytes(32).toString('hex');
+        fs.writeFileSync(DEV_KEY_FILE, key, 'utf8');
+        console.log("🔑 Generated new development encryption key and saved to .dev-encryption-key");
+      }
+    } catch (error) {
+      console.error("Failed to read/write development key file:", error);
+      key = crypto.randomBytes(32).toString('hex');
+      console.log("🔑 Using temporary encryption key (not persisted)");
+    }
   }
   
   encryptionKey = crypto.createHash('sha256').update(key).digest();
-  console.log("Message encryption enabled");
+  console.log("✅ Message encryption enabled");
 }
 
 initializeEncryptionKey();
