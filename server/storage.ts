@@ -16,7 +16,7 @@ import {
   aidOffers,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations - Required for Replit Auth
@@ -24,6 +24,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserRole(id: string, role: "citizen" | "volunteer" | "ngo" | "admin"): Promise<User | undefined>;
+  getAssignableUsers(): Promise<User[]>;
 
   // Disaster report operations
   getDisasterReport(id: string): Promise<DisasterReport | undefined>;
@@ -48,6 +49,17 @@ export interface IStorage {
   // Confirmation operations (for NGO/volunteer users)
   confirmReport(reportId: string, userId: string): Promise<DisasterReport | undefined>;
   unconfirmReport(reportId: string): Promise<DisasterReport | undefined>;
+
+  // Admin operations
+  flagReport(reportId: string, flagType: "false_report" | "duplicate" | "spam", userId: string, adminNotes?: string): Promise<DisasterReport | undefined>;
+  unflagReport(reportId: string): Promise<DisasterReport | undefined>;
+  addAdminNotes(reportId: string, notes: string): Promise<DisasterReport | undefined>;
+  assignReportToVolunteer(reportId: string, volunteerId: string): Promise<DisasterReport | undefined>;
+  unassignReport(reportId: string): Promise<DisasterReport | undefined>;
+  getReportsByStatus(status: "reported" | "verified" | "responding" | "resolved"): Promise<DisasterReport[]>;
+  getFlaggedReports(): Promise<DisasterReport[]>;
+  getPrioritizedReports(): Promise<DisasterReport[]>;
+  updateReportPriority(reportId: string, priorityScore: number): Promise<DisasterReport | undefined>;
 
   // Resource request operations
   createResourceRequest(request: InsertResourceRequest): Promise<ResourceRequest>;
@@ -108,6 +120,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return user;
+  }
+
+  async getAssignableUsers(): Promise<User[]> {
+    return await db
+      .select()
+      .from(users)
+      .where(sql`${users.role} IN ('volunteer', 'ngo', 'admin')`);
   }
 
   // Disaster report operations
@@ -234,6 +253,116 @@ export class DatabaseStorage implements IStorage {
         confirmedBy: null,
         confirmedAt: null,
         status: "reported",
+        updatedAt: new Date(),
+      })
+      .where(eq(disasterReports.id, reportId))
+      .returning();
+    return report;
+  }
+
+  // Admin operations
+  async flagReport(
+    reportId: string,
+    flagType: "false_report" | "duplicate" | "spam",
+    userId: string,
+    adminNotes?: string
+  ): Promise<DisasterReport | undefined> {
+    const [report] = await db
+      .update(disasterReports)
+      .set({
+        flagType,
+        flaggedBy: userId,
+        flaggedAt: new Date(),
+        adminNotes: adminNotes || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(disasterReports.id, reportId))
+      .returning();
+    return report;
+  }
+
+  async unflagReport(reportId: string): Promise<DisasterReport | undefined> {
+    const [report] = await db
+      .update(disasterReports)
+      .set({
+        flagType: null,
+        flaggedBy: null,
+        flaggedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(disasterReports.id, reportId))
+      .returning();
+    return report;
+  }
+
+  async addAdminNotes(reportId: string, notes: string): Promise<DisasterReport | undefined> {
+    const [report] = await db
+      .update(disasterReports)
+      .set({
+        adminNotes: notes,
+        updatedAt: new Date(),
+      })
+      .where(eq(disasterReports.id, reportId))
+      .returning();
+    return report;
+  }
+
+  async assignReportToVolunteer(reportId: string, volunteerId: string): Promise<DisasterReport | undefined> {
+    const [report] = await db
+      .update(disasterReports)
+      .set({
+        assignedTo: volunteerId,
+        assignedAt: new Date(),
+        status: "responding",
+        updatedAt: new Date(),
+      })
+      .where(eq(disasterReports.id, reportId))
+      .returning();
+    return report;
+  }
+
+  async unassignReport(reportId: string): Promise<DisasterReport | undefined> {
+    const [report] = await db
+      .update(disasterReports)
+      .set({
+        assignedTo: null,
+        assignedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(disasterReports.id, reportId))
+      .returning();
+    return report;
+  }
+
+  async getReportsByStatus(status: "reported" | "verified" | "responding" | "resolved"): Promise<DisasterReport[]> {
+    return await db
+      .select()
+      .from(disasterReports)
+      .where(eq(disasterReports.status, status))
+      .orderBy(desc(disasterReports.createdAt));
+  }
+
+  async getFlaggedReports(): Promise<DisasterReport[]> {
+    return await db
+      .select()
+      .from(disasterReports)
+      .where(sql`${disasterReports.flagType} IS NOT NULL`)
+      .orderBy(desc(disasterReports.flaggedAt));
+  }
+
+  async getPrioritizedReports(): Promise<DisasterReport[]> {
+    return await db
+      .select()
+      .from(disasterReports)
+      .where(sql`${disasterReports.flagType} IS NULL`)
+      .orderBy(desc(disasterReports.priorityScore), desc(disasterReports.createdAt));
+  }
+
+  async updateReportPriority(reportId: string, priorityScore: number): Promise<DisasterReport | undefined> {
+    const [report] = await db
+      .update(disasterReports)
+      .set({
+        priorityScore,
         updatedAt: new Date(),
       })
       .where(eq(disasterReports.id, reportId))

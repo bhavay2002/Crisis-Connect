@@ -25,6 +25,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/admin/assignable-users", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+
+      // Get current user
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Only admin and NGO users can access assignable users list
+      if (!user.role || !["ngo", "admin"].includes(user.role)) {
+        return res.status(403).json({ 
+          message: "Only NGOs and admins can access assignable users" 
+        });
+      }
+
+      const users = await storage.getAssignableUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching assignable users:", error);
+      res.status(500).json({ message: "Failed to fetch assignable users" });
+    }
+  });
+
   app.post("/api/auth/update-role", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -322,6 +347,285 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error unconfirming report:", error);
       res.status(500).json({ message: "Failed to unconfirm report" });
+    }
+  });
+
+  // Admin routes for disaster management
+  app.post("/api/admin/reports/:reportId/flag", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { reportId } = req.params;
+      const { flagType, adminNotes } = req.body;
+
+      // Get current user
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Only admin and NGO users can flag reports
+      if (!user.role || !["ngo", "admin"].includes(user.role)) {
+        return res.status(403).json({ 
+          message: "Only NGOs and admins can flag reports" 
+        });
+      }
+
+      // Validate flag type
+      const validFlagTypes = ["false_report", "duplicate", "spam"];
+      if (!validFlagTypes.includes(flagType)) {
+        return res.status(400).json({ message: "Invalid flag type" });
+      }
+
+      const report = await storage.flagReport(reportId, flagType, userId, adminNotes);
+      
+      if (!report) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+
+      // Broadcast flag update to all connected WebSocket clients
+      broadcastToAll({ type: "report_flagged", data: report });
+
+      res.json(report);
+    } catch (error) {
+      console.error("Error flagging report:", error);
+      res.status(500).json({ message: "Failed to flag report" });
+    }
+  });
+
+  app.delete("/api/admin/reports/:reportId/flag", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { reportId } = req.params;
+
+      // Get current user
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Only admin and NGO users can unflag reports
+      if (!user.role || !["ngo", "admin"].includes(user.role)) {
+        return res.status(403).json({ 
+          message: "Only NGOs and admins can unflag reports" 
+        });
+      }
+
+      const report = await storage.unflagReport(reportId);
+      
+      if (!report) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+
+      // Broadcast unflag update to all connected WebSocket clients
+      broadcastToAll({ type: "report_unflagged", data: report });
+
+      res.json(report);
+    } catch (error) {
+      console.error("Error unflagging report:", error);
+      res.status(500).json({ message: "Failed to unflag report" });
+    }
+  });
+
+  app.patch("/api/admin/reports/:reportId/notes", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { reportId } = req.params;
+      const { notes } = req.body;
+
+      // Get current user
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Only admin and NGO users can add admin notes
+      if (!user.role || !["ngo", "admin"].includes(user.role)) {
+        return res.status(403).json({ 
+          message: "Only NGOs and admins can add admin notes" 
+        });
+      }
+
+      if (!notes || typeof notes !== "string") {
+        return res.status(400).json({ message: "Notes are required" });
+      }
+
+      const report = await storage.addAdminNotes(reportId, notes);
+      
+      if (!report) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+
+      res.json(report);
+    } catch (error) {
+      console.error("Error adding admin notes:", error);
+      res.status(500).json({ message: "Failed to add admin notes" });
+    }
+  });
+
+  app.post("/api/admin/reports/:reportId/assign", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { reportId } = req.params;
+      const { volunteerId } = req.body;
+
+      // Get current user
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Only admin and NGO users can assign reports
+      if (!user.role || !["ngo", "admin"].includes(user.role)) {
+        return res.status(403).json({ 
+          message: "Only NGOs and admins can assign reports" 
+        });
+      }
+
+      if (!volunteerId) {
+        return res.status(400).json({ message: "Volunteer ID is required" });
+      }
+
+      // Verify the volunteer exists and has appropriate role
+      const volunteer = await storage.getUser(volunteerId);
+      if (!volunteer) {
+        return res.status(404).json({ message: "Volunteer not found" });
+      }
+
+      if (!volunteer.role || !["volunteer", "ngo", "admin"].includes(volunteer.role)) {
+        return res.status(400).json({ 
+          message: "User must be a volunteer, NGO, or admin to be assigned" 
+        });
+      }
+
+      const report = await storage.assignReportToVolunteer(reportId, volunteerId);
+      
+      if (!report) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+
+      // Broadcast assignment to all connected WebSocket clients
+      broadcastToAll({ type: "report_assigned", data: report });
+
+      res.json(report);
+    } catch (error) {
+      console.error("Error assigning report:", error);
+      res.status(500).json({ message: "Failed to assign report" });
+    }
+  });
+
+  app.delete("/api/admin/reports/:reportId/assign", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { reportId } = req.params;
+
+      // Get current user
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Only admin and NGO users can unassign reports
+      if (!user.role || !["ngo", "admin"].includes(user.role)) {
+        return res.status(403).json({ 
+          message: "Only NGOs and admins can unassign reports" 
+        });
+      }
+
+      const report = await storage.unassignReport(reportId);
+      
+      if (!report) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+
+      // Broadcast unassignment to all connected WebSocket clients
+      broadcastToAll({ type: "report_unassigned", data: report });
+
+      res.json(report);
+    } catch (error) {
+      console.error("Error unassigning report:", error);
+      res.status(500).json({ message: "Failed to unassign report" });
+    }
+  });
+
+  app.get("/api/admin/reports/filter/:status", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { status } = req.params;
+
+      // Get current user
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Only admin and NGO users can access filtered reports
+      if (!user.role || !["ngo", "admin"].includes(user.role)) {
+        return res.status(403).json({ 
+          message: "Only NGOs and admins can access filtered reports" 
+        });
+      }
+
+      // Validate status
+      const validStatuses = ["reported", "verified", "responding", "resolved"];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      const reports = await storage.getReportsByStatus(status as "reported" | "verified" | "responding" | "resolved");
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching filtered reports:", error);
+      res.status(500).json({ message: "Failed to fetch filtered reports" });
+    }
+  });
+
+  app.get("/api/admin/reports/flagged", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+
+      // Get current user
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Only admin and NGO users can access flagged reports
+      if (!user.role || !["ngo", "admin"].includes(user.role)) {
+        return res.status(403).json({ 
+          message: "Only NGOs and admins can access flagged reports" 
+        });
+      }
+
+      const reports = await storage.getFlaggedReports();
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching flagged reports:", error);
+      res.status(500).json({ message: "Failed to fetch flagged reports" });
+    }
+  });
+
+  app.get("/api/admin/reports/prioritized", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+
+      // Get current user
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Only admin and NGO users can access prioritized reports
+      if (!user.role || !["ngo", "admin"].includes(user.role)) {
+        return res.status(403).json({ 
+          message: "Only NGOs and admins can access prioritized reports" 
+        });
+      }
+
+      const reports = await storage.getPrioritizedReports();
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching prioritized reports:", error);
+      res.status(500).json({ message: "Failed to fetch prioritized reports" });
     }
   });
 

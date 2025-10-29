@@ -73,6 +73,12 @@ export const statusEnum = pgEnum("status", [
   "resolved",
 ]);
 
+export const flagTypeEnum = pgEnum("flag_type", [
+  "false_report",
+  "duplicate",
+  "spam",
+]);
+
 // Disaster reports table
 export const disasterReports = pgTable("disaster_reports", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -93,6 +99,13 @@ export const disasterReports = pgTable("disaster_reports", {
   verificationCount: integer("verification_count").notNull().default(0),
   confirmedBy: varchar("confirmed_by").references(() => users.id),
   confirmedAt: timestamp("confirmed_at"),
+  flagType: flagTypeEnum("flag_type"),
+  flaggedBy: varchar("flagged_by").references(() => users.id),
+  flaggedAt: timestamp("flagged_at"),
+  adminNotes: text("admin_notes"),
+  assignedTo: varchar("assigned_to").references(() => users.id),
+  assignedAt: timestamp("assigned_at"),
+  priorityScore: integer("priority_score"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -105,6 +118,15 @@ export const insertDisasterReportSchema = createInsertSchema(disasterReports).om
   status: true,
   aiValidationScore: true,
   aiValidationNotes: true,
+  flagType: true,
+  flaggedBy: true,
+  flaggedAt: true,
+  adminNotes: true,
+  assignedTo: true,
+  assignedAt: true,
+  priorityScore: true,
+  confirmedBy: true,
+  confirmedAt: true,
 });
 
 export type InsertDisasterReport = z.infer<typeof insertDisasterReportSchema>;

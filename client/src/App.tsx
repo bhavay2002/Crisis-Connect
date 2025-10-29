@@ -17,6 +17,7 @@ import SubmitResourceRequest from "@/pages/SubmitResourceRequest";
 import AidOffers from "@/pages/AidOffers";
 import SubmitAidOffer from "@/pages/SubmitAidOffer";
 import AidOfferMatches from "@/pages/AidOfferMatches";
+import AdminDashboard from "@/pages/AdminDashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -53,6 +54,7 @@ function Router() {
           <Route path="/aid-offers" component={AidOffers} />
           <Route path="/submit-aid-offer" component={SubmitAidOffer} />
           <Route path="/aid-offers/:offerId/matches" component={AidOfferMatches} />
+          <Route path="/admin" component={AdminDashboard} />
           <Route path="/select-role" component={RoleSelection} />
           <Route path="/my-reports" component={Dashboard} />
           <Route path="/teams" component={Dashboard} />
