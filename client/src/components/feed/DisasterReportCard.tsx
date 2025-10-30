@@ -2,6 +2,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Clock, CheckCircle, AlertTriangle, Flame, Droplets, ThumbsUp, ShieldCheck } from "lucide-react";
+import { FakeDetectionBadge } from "@/components/FakeDetectionBadge";
 
 interface DisasterReport {
   id: string;
@@ -15,6 +16,8 @@ interface DisasterReport {
   status: "reported" | "verified" | "responding" | "resolved";
   confirmedBy?: string | null;
   confirmedAt?: Date | null;
+  fakeDetectionScore?: number | null;
+  fakeDetectionFlags?: string[] | null;
 }
 
 interface DisasterReportCardProps {
@@ -90,6 +93,11 @@ export default function DisasterReportCard({
                     CONFIRMED
                   </Badge>
                 )}
+                <FakeDetectionBadge
+                  score={report.fakeDetectionScore}
+                  flags={report.fakeDetectionFlags}
+                  compact
+                />
               </div>
             </div>
           </div>

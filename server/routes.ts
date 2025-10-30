@@ -23,6 +23,7 @@ import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { AIValidationService } from "./aiValidation";
 import { AIMatchingService } from "./aiMatching";
 import { AICrisisGuidanceService } from "./aiCrisisGuidance";
+import { FakeReportDetectionService } from "./fakeReportDetection";
 import { 
   reportSubmissionLimiter, 
   resourceRequestLimiter, 
@@ -394,11 +395,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         existingReports
       );
 
-      // Add AI validation results to the report
+      // Run fake report detection
+      const fakeDetectionService = new FakeReportDetectionService();
+      const fakeDetection = await fakeDetectionService.analyzeReport(
+        {
+          title: validatedData.title,
+          description: validatedData.description,
+          type: validatedData.type,
+          severity: validatedData.severity,
+          location: validatedData.location,
+          latitude: validatedData.latitude || undefined,
+          longitude: validatedData.longitude || undefined,
+        },
+        validatedData.mediaUrls || [],
+        existingReports,
+        userId
+      );
+
+      // Add AI validation and fake detection results to the report
       const reportWithAI = {
         ...validatedData,
         aiValidationScore: aiValidation.score,
         aiValidationNotes: aiValidation.notes,
+        fakeDetectionScore: fakeDetection.score,
+        fakeDetectionFlags: fakeDetection.flags,
+        imageMetadata: fakeDetection.imageMetadata,
+        textAnalysisResults: fakeDetection.textAnalysis,
+        similarReportIds: fakeDetection.similarReportIds,
       };
 
       const report = await storage.createDisasterReport(reportWithAI);

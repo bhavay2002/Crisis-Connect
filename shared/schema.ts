@@ -127,6 +127,11 @@ export const disasterReports = pgTable("disaster_reports", {
   assignedTo: varchar("assigned_to").references(() => users.id),
   assignedAt: timestamp("assigned_at"),
   priorityScore: integer("priority_score"),
+  fakeDetectionScore: integer("fake_detection_score"),
+  fakeDetectionFlags: text("fake_detection_flags").array().default(sql`ARRAY[]::text[]`),
+  imageMetadata: jsonb("image_metadata"),
+  textAnalysisResults: jsonb("text_analysis_results"),
+  similarReportIds: text("similar_report_ids").array().default(sql`ARRAY[]::text[]`),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -151,6 +156,11 @@ export const insertDisasterReportSchema = createInsertSchema(disasterReports).om
   priorityScore: true,
   confirmedBy: true,
   confirmedAt: true,
+  fakeDetectionScore: true,
+  fakeDetectionFlags: true,
+  imageMetadata: true,
+  textAnalysisResults: true,
+  similarReportIds: true,
 });
 
 export type InsertDisasterReport = z.infer<typeof insertDisasterReportSchema>;
