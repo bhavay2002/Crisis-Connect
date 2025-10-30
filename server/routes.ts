@@ -81,7 +81,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { role } = req.body;
       
       // Validate role
-      const validRoles = ["citizen", "volunteer", "ngo", "admin"];
+      const validRoles = ["citizen", "volunteer", "ngo", "admin", "government"];
       if (!validRoles.includes(role)) {
         return res.status(400).json({ message: "Invalid role" });
       }
@@ -118,6 +118,201 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating role:", error);
       res.status(500).json({ message: "Failed to update role" });
+    }
+  });
+
+  // Identity Verification Routes
+  app.post("/api/auth/send-email-verification", isAuthenticated, authLimiter, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      if (user.emailVerified) {
+        return res.status(400).json({ message: "Email already verified" });
+      }
+      
+      // Generate 6-digit OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+      
+      await storage.updateEmailOTP(userId, otp, expiresAt);
+      
+      // TODO: Send email with OTP
+      // For development, return the OTP in response
+      res.json({ 
+        message: "Verification code sent to your email",
+        // Remove this in production
+        devOTP: process.env.NODE_ENV === "development" ? otp : undefined
+      });
+    } catch (error) {
+      console.error("Error sending email verification:", error);
+      res.status(500).json({ message: "Failed to send verification code" });
+    }
+  });
+
+  app.post("/api/auth/verify-email", isAuthenticated, authLimiter, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { code } = req.body;
+      
+      if (!code) {
+        return res.status(400).json({ message: "Verification code required" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      if (user.emailVerified) {
+        return res.status(400).json({ message: "Email already verified" });
+      }
+      
+      if (!user.emailOTP || !user.emailOTPExpiresAt) {
+        return res.status(400).json({ message: "No verification code found. Please request a new one." });
+      }
+      
+      if (new Date() > user.emailOTPExpiresAt) {
+        return res.status(400).json({ message: "Verification code expired. Please request a new one." });
+      }
+      
+      if (user.emailOTP !== code) {
+        return res.status(400).json({ message: "Invalid verification code" });
+      }
+      
+      const updatedUser = await storage.verifyUserEmail(userId);
+      res.json({ message: "Email verified successfully", user: updatedUser });
+    } catch (error) {
+      console.error("Error verifying email:", error);
+      res.status(500).json({ message: "Failed to verify email" });
+    }
+  });
+
+  app.post("/api/auth/send-phone-verification", isAuthenticated, authLimiter, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { phoneNumber } = req.body;
+      
+      if (!phoneNumber) {
+        return res.status(400).json({ message: "Phone number required" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      if (user.phoneVerified) {
+        return res.status(400).json({ message: "Phone already verified" });
+      }
+      
+      // Generate 6-digit OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+      
+      await storage.updatePhoneOTP(userId, otp, expiresAt);
+      
+      // TODO: Send SMS with OTP using Twilio integration
+      // For development, return the OTP in response
+      res.json({ 
+        message: `Verification code sent to ${phoneNumber}`,
+        // Remove this in production
+        devOTP: process.env.NODE_ENV === "development" ? otp : undefined
+      });
+    } catch (error) {
+      console.error("Error sending phone verification:", error);
+      res.status(500).json({ message: "Failed to send verification code" });
+    }
+  });
+
+  app.post("/api/auth/verify-phone", isAuthenticated, authLimiter, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { code, phoneNumber } = req.body;
+      
+      if (!code || !phoneNumber) {
+        return res.status(400).json({ message: "Verification code and phone number required" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      if (user.phoneVerified) {
+        return res.status(400).json({ message: "Phone already verified" });
+      }
+      
+      if (!user.phoneOTP || !user.phoneOTPExpiresAt) {
+        return res.status(400).json({ message: "No verification code found. Please request a new one." });
+      }
+      
+      if (new Date() > user.phoneOTPExpiresAt) {
+        return res.status(400).json({ message: "Verification code expired. Please request a new one." });
+      }
+      
+      if (user.phoneOTP !== code) {
+        return res.status(400).json({ message: "Invalid verification code" });
+      }
+      
+      const updatedUser = await storage.verifyUserPhone(userId, phoneNumber);
+      res.json({ message: "Phone verified successfully", user: updatedUser });
+    } catch (error) {
+      console.error("Error verifying phone:", error);
+      res.status(500).json({ message: "Failed to verify phone" });
+    }
+  });
+
+  app.post("/api/auth/verify-aadhaar", isAuthenticated, authLimiter, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { aadhaarNumber, otp } = req.body;
+      
+      if (!aadhaarNumber) {
+        return res.status(400).json({ message: "Aadhaar number required" });
+      }
+      
+      // Validate Aadhaar number format (12 digits)
+      if (!/^\d{12}$/.test(aadhaarNumber)) {
+        return res.status(400).json({ message: "Invalid Aadhaar number format. Must be 12 digits." });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      if (user.aadhaarVerified) {
+        return res.status(400).json({ message: "Aadhaar already verified" });
+      }
+      
+      // TODO: Integrate with actual Aadhaar verification API (requires government approval)
+      // For demo purposes, accept any 12-digit number with dummy OTP validation
+      // In production, this would call UIDAI's API for real verification
+      
+      // Simulated verification for demo
+      const updatedUser = await storage.verifyUserAadhaar(userId, aadhaarNumber);
+      
+      // Update user reputation for completing identity verification
+      const reputation = await storage.getUserReputation(userId);
+      if (reputation) {
+        await storage.updateUserReputation(userId, {
+          trustScore: reputation.trustScore + 10, // Bonus for identity verification
+        });
+      }
+      
+      res.json({ 
+        message: "Aadhaar verified successfully (Demo Mode)",
+        user: updatedUser,
+        note: "This is a simulated verification. Production requires UIDAI API integration."
+      });
+    } catch (error) {
+      console.error("Error verifying Aadhaar:", error);
+      res.status(500).json({ message: "Failed to verify Aadhaar" });
     }
   });
 

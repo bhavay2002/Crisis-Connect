@@ -31,6 +31,7 @@ export const userRoleEnum = pgEnum("user_role", [
   "volunteer",
   "ngo",
   "admin",
+  "government",
 ]);
 
 // Users table - Required for Replit Auth
@@ -44,6 +45,14 @@ export const users = pgTable("users", {
   role: userRoleEnum("role").default("citizen"),
   phoneNumber: varchar("phone_number"),
   phoneVerified: timestamp("phone_verified"),
+  phoneOTP: varchar("phone_otp"),
+  phoneOTPExpiresAt: timestamp("phone_otp_expires_at"),
+  emailVerified: timestamp("email_verified"),
+  emailOTP: varchar("email_otp"),
+  emailOTPExpiresAt: timestamp("email_otp_expires_at"),
+  aadhaarNumber: varchar("aadhaar_number", { length: 12 }),
+  aadhaarVerified: timestamp("aadhaar_verified"),
+  identityVerifiedAt: timestamp("identity_verified_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Package, Droplet, Home, Plus, Shirt, HelpCircle, AlertCircle, Clock, CheckCircle2, XCircle, Wind } from "lucide-react";
+import { Package, Droplet, Home, Plus, Shirt, HelpCircle, AlertCircle, Clock, CheckCircle2, XCircle, Wind, ArrowRight, User } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,9 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { ResourceRequest } from "@shared/schema";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { Progress } from "@/components/ui/progress";
 
 const resourceIcons = {
   food: Package,
@@ -51,6 +52,20 @@ function ResourceRequestCard({ request, onFulfill, isFulfilling }: {
   const ResourceIcon = resourceIcons[request.resourceType];
   const StatusIcon = statusIcons[request.status];
 
+  const getProgressValue = () => {
+    if (request.status === "fulfilled") return 100;
+    if (request.status === "in_progress") return 66;
+    if (request.status === "pending") return 33;
+    return 0;
+  };
+
+  const getWorkflowStage = () => {
+    if (request.status === "fulfilled") return "Delivered";
+    if (request.status === "in_progress") return "Approved & In Transit";
+    if (request.status === "pending") return "Waiting for Approval";
+    return "Cancelled";
+  };
+
   return (
     <Card className="hover-elevate" data-testid={`card-resource-request-${request.id}`}>
       <CardHeader>
@@ -81,6 +96,23 @@ function ResourceRequestCard({ request, onFulfill, isFulfilling }: {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
+          {request.status !== "cancelled" && (
+            <div className="space-y-2 p-3 bg-muted/50 rounded-lg" data-testid={`workflow-status-${request.id}`}>
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span className="font-medium">Aid Workflow Status</span>
+                <span className="text-muted-foreground">{getWorkflowStage()}</span>
+              </div>
+              <Progress value={getProgressValue()} className="h-2" />
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Request</span>
+                <ArrowRight className="h-3 w-3" />
+                <span>Approval</span>
+                <ArrowRight className="h-3 w-3" />
+                <span>Delivery</span>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <p className="text-muted-foreground mb-1">Quantity</p>
@@ -96,6 +128,27 @@ function ResourceRequestCard({ request, onFulfill, isFulfilling }: {
             <div className="text-sm">
               <p className="text-muted-foreground mb-1">Contact</p>
               <p className="font-medium" data-testid={`text-contact-${request.id}`}>{request.contactInfo}</p>
+            </div>
+          )}
+
+          {request.status === "in_progress" && (
+            <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+              <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+              <p className="text-sm text-blue-900 dark:text-blue-100">
+                A volunteer has committed to fulfill this request
+              </p>
+            </div>
+          )}
+
+          {request.status === "fulfilled" && request.fulfilledBy && request.fulfilledAt && (
+            <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+              <div className="text-sm text-green-900 dark:text-green-100">
+                <p className="font-medium">Aid Delivered!</p>
+                <p className="text-xs text-green-700 dark:text-green-300">
+                  Fulfilled {formatDistanceToNow(new Date(request.fulfilledAt), { addSuffix: true })}
+                </p>
+              </div>
             </div>
           )}
 
@@ -165,6 +218,9 @@ export default function ResourceRequests() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/resource-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/resource-requests/mine"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/aid-offers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/aid-offers/mine"] });
       toast({
         title: "Request Fulfilled",
         description: "Resource request marked as fulfilled successfully.",

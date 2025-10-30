@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Shield, Users, Building2, UserCircle } from "lucide-react";
+import { Shield, Users, Building2, UserCircle, Landmark } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const roles = [
@@ -28,6 +28,12 @@ const roles = [
     label: "NGO/Organization",
     description: "Manage relief operations and resources",
     icon: Building2,
+  },
+  {
+    value: "government",
+    label: "Government Official",
+    description: "Access administrative data and coordinate disaster response",
+    icon: Landmark,
   },
   {
     value: "admin",

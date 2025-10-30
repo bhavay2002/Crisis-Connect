@@ -42,6 +42,9 @@ import {
   Map as MapIcon,
   Package,
   Heart,
+  Sparkles,
+  Award,
+  Shield,
 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -49,14 +52,18 @@ interface DashboardLayoutProps {
 }
 
 const menuItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["citizen", "volunteer", "ngo", "admin"] },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["citizen", "volunteer", "ngo", "admin", "government"] },
   { title: "Volunteer Hub", url: "/volunteer", icon: Heart, roles: ["volunteer", "ngo", "admin"] },
-  { title: "Active Reports", url: "/reports", icon: AlertTriangle, roles: ["citizen", "volunteer", "ngo", "admin"] },
-  { title: "Interactive Map", url: "/map", icon: MapIcon, roles: ["citizen", "volunteer", "ngo", "admin"] },
+  { title: "Active Reports", url: "/reports", icon: AlertTriangle, roles: ["citizen", "volunteer", "ngo", "admin", "government"] },
+  { title: "Interactive Map", url: "/map", icon: MapIcon, roles: ["citizen", "volunteer", "ngo", "admin", "government"] },
   { title: "Submit Report", url: "/submit", icon: PlusCircle, roles: ["citizen", "volunteer", "ngo", "admin"] },
   { title: "Resource Requests", url: "/resource-requests", icon: Package, roles: ["citizen", "volunteer", "ngo", "admin"] },
+  { title: "Aid Matching", url: "/aid-matching", icon: Sparkles, roles: ["volunteer", "ngo", "admin"] },
   { title: "Resource Management", url: "/resource-management", icon: Package, roles: ["ngo", "admin"] },
-  { title: "Analytics", url: "/analytics", icon: BarChart3, roles: ["admin"] },
+  { title: "Analytics", url: "/analytics", icon: BarChart3, roles: ["admin", "government"] },
+  { title: "My Profile", url: "/profile", icon: User, roles: ["citizen", "volunteer", "ngo", "admin", "government"] },
+  { title: "Verification", url: "/verify", icon: Shield, roles: ["citizen", "volunteer", "ngo", "admin", "government"] },
+  { title: "Reputation", url: "/reputation", icon: Award, roles: ["citizen", "volunteer", "ngo", "admin", "government"] },
   { title: "My Reports", url: "/my-reports", icon: FileText, roles: ["citizen", "volunteer", "ngo", "admin"] },
   { title: "Response Teams", url: "/teams", icon: Users, roles: ["volunteer", "ngo", "admin"] },
 ];

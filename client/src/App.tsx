@@ -18,12 +18,16 @@ import SubmitResourceRequest from "@/pages/SubmitResourceRequest";
 import AidOffers from "@/pages/AidOffers";
 import SubmitAidOffer from "@/pages/SubmitAidOffer";
 import AidOfferMatches from "@/pages/AidOfferMatches";
+import AidMatchingDashboard from "@/pages/AidMatchingDashboard";
 import AdminDashboard from "@/pages/feed/AdminDashboard";
 import VolunteerDashboard from "@/pages/VolunteerDashboard";
 import ResourceManagement from "@/pages/ResourceManagement";
 import AnalyticsDashboard from "@/pages/feed/AnalyticsDashboard";
 import Notifications from "@/pages/Notifications";
 import NotificationPreferences from "@/pages/NotificationPreferences";
+import UserProfile from "@/pages/UserProfile";
+import IdentityVerification from "@/pages/IdentityVerification";
+import ReputationDashboard from "@/pages/ReputationDashboard";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -61,11 +65,15 @@ function Router() {
           <Route path="/aid-offers" component={AidOffers} />
           <Route path="/submit-aid-offer" component={SubmitAidOffer} />
           <Route path="/aid-offers/:offerId/matches" component={AidOfferMatches} />
+          <Route path="/aid-matching" component={AidMatchingDashboard} />
           <Route path="/admin" component={AdminDashboard} />
           <Route path="/resource-management" component={ResourceManagement} />
           <Route path="/analytics" component={AnalyticsDashboard} />
           <Route path="/notifications" component={Notifications} />
           <Route path="/notification-preferences" component={NotificationPreferences} />
+          <Route path="/profile" component={UserProfile} />
+          <Route path="/verify" component={IdentityVerification} />
+          <Route path="/reputation" component={ReputationDashboard} />
           <Route path="/select-role" component={RoleSelection} />
           <Route path="/my-reports" component={Dashboard} />
           <Route path="/teams" component={Dashboard} />

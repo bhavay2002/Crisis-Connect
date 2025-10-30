@@ -1,8 +1,8 @@
 import { Badge } from "@/components/ui/badge";
-import { Shield, Users, Building2, UserCircle } from "lucide-react";
+import { Shield, Users, Building2, UserCircle, Landmark } from "lucide-react";
 
 interface RoleBadgeProps {
-  role: "citizen" | "volunteer" | "ngo" | "admin" | null | undefined;
+  role: "citizen" | "volunteer" | "ngo" | "admin" | "government" | null | undefined;
   size?: "sm" | "default";
 }
 
@@ -21,6 +21,11 @@ const roleConfig = {
     label: "NGO",
     icon: Building2,
     variant: "default" as const,
+  },
+  government: {
+    label: "Government",
+    icon: Landmark,
+    variant: "outline" as const,
   },
   admin: {
     label: "Admin",

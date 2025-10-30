@@ -54,7 +54,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
-  updateUserRole(id: string, role: "citizen" | "volunteer" | "ngo" | "admin"): Promise<User | undefined>;
+  updateUserRole(id: string, role: "citizen" | "volunteer" | "ngo" | "admin" | "government"): Promise<User | undefined>;
   getAssignableUsers(): Promise<User[]>;
   getAllUsers(): Promise<User[]>;
 
@@ -231,10 +231,79 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUserRole(id: string, role: "citizen" | "volunteer" | "ngo" | "admin"): Promise<User | undefined> {
+  async updateUserRole(id: string, role: "citizen" | "volunteer" | "ngo" | "admin" | "government"): Promise<User | undefined> {
     const [user] = await db
       .update(users)
       .set({ role, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async updateEmailOTP(id: string, otp: string, expiresAt: Date): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        emailOTP: otp, 
+        emailOTPExpiresAt: expiresAt,
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async updatePhoneOTP(id: string, otp: string, expiresAt: Date): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        phoneOTP: otp, 
+        phoneOTPExpiresAt: expiresAt,
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async verifyUserEmail(id: string): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        emailVerified: new Date(),
+        emailOTP: null,
+        emailOTPExpiresAt: null,
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async verifyUserPhone(id: string, phoneNumber: string): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        phoneNumber,
+        phoneVerified: new Date(),
+        phoneOTP: null,
+        phoneOTPExpiresAt: null,
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async verifyUserAadhaar(id: string, aadhaarNumber: string): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        aadhaarNumber,
+        aadhaarVerified: new Date(),
+        identityVerifiedAt: new Date(),
+        updatedAt: new Date() 
+      })
       .where(eq(users.id, id))
       .returning();
     return user;

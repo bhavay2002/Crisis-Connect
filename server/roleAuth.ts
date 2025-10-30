@@ -1,7 +1,7 @@
 import type { RequestHandler } from "express";
 import { storage } from "./storage";
 
-export type UserRole = "citizen" | "volunteer" | "ngo" | "admin";
+export type UserRole = "citizen" | "volunteer" | "ngo" | "admin" | "government";
 
 // Middleware to check if user has required role
 export function requireRole(...allowedRoles: UserRole[]): RequestHandler {
@@ -46,6 +46,9 @@ export const requireVolunteer = requireRole("volunteer", "ngo", "admin");
 
 // Middleware to check if user is NGO or admin
 export const requireNGO = requireRole("ngo", "admin");
+
+// Middleware to check if user is government official
+export const requireGovernment = requireRole("government", "admin");
 
 // Helper function to check role programmatically
 export async function hasRole(

@@ -76,9 +76,21 @@ Preferred communication style: Simple, everyday language.
 **Provider**: Replit Auth (OpenID Connect).
 **Implementation**: Passport.js, session-based authentication, `isAuthenticated` middleware.
 **Role-Based Access Control**:
--   Four roles: Citizen, Volunteer, NGO, Admin.
+-   Five roles: Citizen, Volunteer, NGO, Government, Admin.
 -   Role selection page, `requireRole` middleware for endpoint protection.
 -   Security controls: Admin provisioning via database, prevents self-demotion, server-side validation.
+**Identity Verification System**:
+-   Email verification with OTP (6-digit code, 10-minute expiration)
+-   Phone verification with SMS OTP (development mode returns OTP in response)
+-   Aadhaar verification (simulated for demo - production requires UIDAI API integration)
+-   Verification status tracked with timestamps (emailVerified, phoneVerified, aadhaarVerified, identityVerifiedAt)
+-   +10 trust score bonus for completing Aadhaar verification
+**User Reputation System**:
+-   Trust score (0-100) based on verified contributions
+-   Metrics tracked: totalReports, verifiedReports, falseReports, verificationsGiven, upvotesReceived, downvotesReceived, resourcesProvided, resourcesFulfilled, responseTimeAvg
+-   Achievement system with unlockable badges (Verified Contributor, Report Master, Community Validator, Community Helper, Trusted Reporter)
+-   Trust levels: Excellent (80+), Good (60-79), Fair (40-59), Building (<40)
+-   Accuracy percentage calculated from report submission history
 **Security**: HTTPS-only cookies, CSRF protection.
 
 ## External Dependencies
@@ -91,6 +103,40 @@ Preferred communication style: Simple, everyday language.
 -   **Third-party NPM Packages**: Radix UI, TanStack Query, Wouter, Drizzle ORM, Zod, date-fns, lucide-react, Leaflet, leaflet.heat (heatmap visualization), Uppy (file uploads), MediaRecorder API (voice recording).
 
 ## Recent Updates (October 30, 2025)
+
+### User System Enhancements (Latest)
+- **Government Role**: Added fifth user role for government officials with access to analytics and administrative data
+- **Identity Verification System**: 
+  - Email verification with 6-digit OTP codes (10-minute expiration)
+  - Phone verification with SMS OTP (uses Twilio integration for production)
+  - Aadhaar verification (simulated demo - production requires UIDAI API)
+  - Verification API endpoints: send-email-verification, verify-email, send-phone-verification, verify-phone, verify-aadhaar
+  - Development mode returns OTP codes in API response for testing
+- **User Profile Page** (/profile):
+  - Account information display with avatar and role badge
+  - Verification status for email, phone, and Aadhaar with visual indicators
+  - Reputation summary with trust score and contribution stats
+  - Quick access to verification and reputation dashboards
+- **Identity Verification Page** (/verify):
+  - Step-by-step verification forms for email, phone, and Aadhaar
+  - OTP input with confirmation dialogs
+  - Progress tracking showing completed verifications
+  - Development mode displays OTP codes for testing
+- **Reputation Dashboard** (/reputation):
+  - Trust score visualization with progress bar and level badges
+  - Contribution statistics (reports, verifications, resources, upvotes)
+  - Achievement system with 5 unlockable badges and progress tracking
+  - Accuracy percentage based on report quality
+  - Tips for improving reputation score
+- **Database Schema Updates**:
+  - Added verification fields: emailVerified, phoneVerified, aadhaarVerified, identityVerifiedAt
+  - Added OTP storage: verificationOTP, otpExpiresAt
+  - Added aadhaarNumber field (12 digits, masked display)
+  - Updated user role enum to include "government"
+- **Storage Methods**: Added updateUserOTP, verifyUserEmail, verifyUserPhone, verifyUserAadhaar methods
+- **Navigation**: Added Profile, Verification, and Reputation links to sidebar navigation (available to all roles)
+
+
 
 ### Report Verification System (Latest)
 - **Community Trust Rating**: Users can upvote or downvote disaster reports to indicate trust/reliability
