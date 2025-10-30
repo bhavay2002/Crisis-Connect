@@ -14,12 +14,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, MapPin, FileText, Camera, CheckCircle, Navigation, X, Image as ImageIcon } from "lucide-react";
+import { AlertTriangle, MapPin, FileText, Camera, CheckCircle, Navigation, X, Image as ImageIcon, Mic } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { ObjectUploader } from "@/components/feed/ObjectUploader";
 import { Badge } from "@/components/ui/badge";
+import { VoiceRecorder } from "@/components/VoiceRecorder";
 
 export default function SubmitReport() {
   const [step, setStep] = useState(1);
@@ -185,6 +186,50 @@ export default function SubmitReport() {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleVoiceRecordingComplete = async (audioBlob: Blob, fileName: string) => {
+    try {
+      const uploadParams = await handleGetUploadParameters();
+      
+      const uploadResponse = await fetch(uploadParams.url, {
+        method: uploadParams.method,
+        body: audioBlob,
+        headers: {
+          'Content-Type': 'audio/webm',
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const aclResponse = await fetch("/api/objects/media", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ mediaURL: uploadParams.url }),
+      });
+
+      if (aclResponse.ok) {
+        const data = await aclResponse.json();
+        setUploadedFiles(prev => [...prev, {
+          url: data.objectPath,
+          name: fileName,
+        }]);
+        toast({
+          title: "Voice recording saved",
+          description: "Your voice note has been attached to the report",
+        });
+      }
+    } catch (error) {
+      console.error("Voice upload error:", error);
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload voice recording",
+        variant: "destructive",
+      });
+    }
+  };
+
   const steps = [
     { number: 1, title: "Type", icon: AlertTriangle },
     { number: 2, title: "Location", icon: MapPin },
@@ -281,7 +326,14 @@ export default function SubmitReport() {
                           <SelectItem value="flood">Flood</SelectItem>
                           <SelectItem value="earthquake">Earthquake</SelectItem>
                           <SelectItem value="storm">Storm</SelectItem>
-                          <SelectItem value="accident">Accident</SelectItem>
+                          <SelectItem value="road_accident">Road Accident</SelectItem>
+                          <SelectItem value="epidemic">Epidemic</SelectItem>
+                          <SelectItem value="landslide">Landslide</SelectItem>
+                          <SelectItem value="gas_leak">Gas Leak</SelectItem>
+                          <SelectItem value="building_collapse">Building Collapse</SelectItem>
+                          <SelectItem value="chemical_spill">Chemical Spill</SelectItem>
+                          <SelectItem value="power_outage">Power Outage</SelectItem>
+                          <SelectItem value="water_contamination">Water Contamination</SelectItem>
                           <SelectItem value="other">Other</SelectItem>
                         </SelectContent>
                       </Select>
@@ -396,6 +448,11 @@ export default function SubmitReport() {
                           <span>Upload Photos/Videos</span>
                         </div>
                       </ObjectUploader>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Record Voice Note (Optional)</Label>
+                      <VoiceRecorder onRecordingComplete={handleVoiceRecordingComplete} />
                       
                       {uploadedFiles.length > 0 && (
                         <div className="space-y-2 mt-3">

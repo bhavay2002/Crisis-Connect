@@ -56,7 +56,14 @@ export const disasterTypeEnum = pgEnum("disaster_type", [
   "flood",
   "earthquake",
   "storm",
-  "accident",
+  "road_accident",
+  "epidemic",
+  "landslide",
+  "gas_leak",
+  "building_collapse",
+  "chemical_spill",
+  "power_outage",
+  "water_contamination",
   "other",
 ]);
 
