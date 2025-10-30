@@ -165,6 +165,11 @@ export interface IStorage {
   getMessages(chatRoomId: string, limit?: number): Promise<Message[]>;
   getMessagesSince(chatRoomId: string, sinceDate: Date): Promise<Message[]>;
   deleteMessage(id: string): Promise<void>;
+
+  // Clustering operations
+  updateSimilarReports(reportId: string, similarReportIds: string[]): Promise<DisasterReport | undefined>;
+  getReportsWithClusters(): Promise<DisasterReport[]>;
+  getRecentReports(limit: number): Promise<DisasterReport[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1072,6 +1077,34 @@ export class DatabaseStorage implements IStorage {
 
   async deleteMessage(id: string): Promise<void> {
     await db.delete(messages).where(eq(messages.id, id));
+  }
+
+  // Clustering operations
+  async updateSimilarReports(reportId: string, similarReportIds: string[]): Promise<DisasterReport | undefined> {
+    const [report] = await db
+      .update(disasterReports)
+      .set({ similarReportIds, updatedAt: new Date() })
+      .where(eq(disasterReports.id, reportId))
+      .returning();
+    return report;
+  }
+
+  async getReportsWithClusters(): Promise<DisasterReport[]> {
+    const reports = await db
+      .select()
+      .from(disasterReports)
+      .where(sql`array_length(${disasterReports.similarReportIds}, 1) > 0 OR status != 'resolved'`)
+      .orderBy(desc(disasterReports.createdAt));
+    return reports;
+  }
+
+  async getRecentReports(limit: number): Promise<DisasterReport[]> {
+    const reports = await db
+      .select()
+      .from(disasterReports)
+      .orderBy(desc(disasterReports.createdAt))
+      .limit(limit);
+    return reports;
   }
 }
 

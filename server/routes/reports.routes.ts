@@ -72,9 +72,11 @@ export function registerReportRoutes(app: Express) {
         userId,
       });
 
-      // Run AI validation
+      // Load recent reports once for both AI validation and duplicate detection (performance optimization)
+      const recentReports = await storage.getRecentReports(200);
+      
+      // Run AI validation using recent reports
       const aiService = new AIValidationService();
-      const existingReports = await storage.getAllDisasterReports();
       const aiValidation = await aiService.validateReport(
         {
           title: validatedData.title,
@@ -85,7 +87,7 @@ export function registerReportRoutes(app: Express) {
           latitude: validatedData.latitude,
           longitude: validatedData.longitude,
         },
-        existingReports
+        recentReports
       );
 
       // Add AI validation results to the report
@@ -97,10 +99,52 @@ export function registerReportRoutes(app: Express) {
 
       const report = await storage.createDisasterReport(reportWithAI);
       
-      // Broadcast new report to all connected WebSocket clients
-      broadcastToAll({ type: "new_report", data: report });
+      // Run automatic duplicate detection using the same recent reports
+      const { clusteringService } = await import("../utils/clustering");
+      const duplicateCheck = clusteringService.detectDuplicates(report, recentReports);
       
-      res.status(201).json(report);
+      let finalReport = report;
+      if (duplicateCheck.confidence > 0.5) {
+        const similarReports = clusteringService.findSimilarReports(report, recentReports);
+        const similarIds = similarReports.slice(0, 5).map(s => s.reportId);
+        
+        if (similarIds.length > 0) {
+          // Update the new report with similar IDs
+          finalReport = await storage.updateSimilarReports(report.id, similarIds) || report;
+          
+          // Bidirectionally link: update each similar report to include this new report
+          for (const similarId of similarIds) {
+            const existingReport = await storage.getDisasterReport(similarId);
+            if (existingReport) {
+              const updatedSimilarIds = Array.from(new Set([
+                ...(existingReport.similarReportIds || []),
+                report.id
+              ]));
+              await storage.updateSimilarReports(similarId, updatedSimilarIds);
+            }
+          }
+        }
+      }
+      
+      // Broadcast new report to all connected WebSocket clients
+      broadcastToAll({ 
+        type: "new_report", 
+        data: finalReport,
+        duplicateInfo: duplicateCheck.isDuplicate ? {
+          isDuplicate: true,
+          confidence: duplicateCheck.confidence,
+          reasons: duplicateCheck.reasons,
+        } : undefined
+      });
+      
+      res.status(201).json({
+        ...finalReport,
+        duplicateCheck: {
+          hasSimilar: duplicateCheck.confidence > 0.5,
+          confidence: duplicateCheck.confidence,
+          reasons: duplicateCheck.reasons,
+        }
+      });
     } catch (error: any) {
       if (error.name === "ZodError") {
         const validationError = fromZodError(error);

@@ -28,6 +28,7 @@ import NotificationPreferences from "@/pages/NotificationPreferences";
 import UserProfile from "@/pages/UserProfile";
 import IdentityVerification from "@/pages/IdentityVerification";
 import ReputationDashboard from "@/pages/ReputationDashboard";
+import ClusterManagementPage from "@/pages/ClusterManagementPage";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -74,6 +75,7 @@ function Router() {
           <Route path="/profile" component={UserProfile} />
           <Route path="/verify" component={IdentityVerification} />
           <Route path="/reputation" component={ReputationDashboard} />
+          <Route path="/clusters" component={ClusterManagementPage} />
           <Route path="/select-role" component={RoleSelection} />
           <Route path="/my-reports" component={Dashboard} />
           <Route path="/teams" component={Dashboard} />

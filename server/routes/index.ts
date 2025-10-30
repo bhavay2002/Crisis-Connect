@@ -32,6 +32,7 @@ import {
   setBroadcastFunction as setAIBroadcast 
 } from "./ai.routes";
 import { registerStorageRoutes } from "./storage.routes";
+import { registerClusteringRoutes } from "./clustering.routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication middleware
@@ -87,6 +88,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerChatRoutes(app);
   registerAIRoutes(app);
   registerStorageRoutes(app);
+  registerClusteringRoutes(app);
 
   return httpServer;
 }
