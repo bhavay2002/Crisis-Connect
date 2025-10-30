@@ -21,7 +21,13 @@ Preferred communication style: Simple, everyday language.
     -   **Dashboard**: Statistics and active reports.
     -   **Volunteer Hub**: Comprehensive overview for volunteers/NGOs including demand-supply, resource management, report verification, and AI-powered insights.
     -   **Admin Dashboard**: User management, enhanced report moderation (flagging, assignment, notes, status controls), and analytics export (CSV/JSON).
--   **Interactive Map**: Leaflet-based visualization with color-coded markers (severity), heatmap layer (density), demo overlays (shelters, evacuation zones, roads), timeline playback, filter controls (type, severity, time), and detailed report views. Supports 13 disaster types.
+-   **Interactive Map**: Leaflet-based visualization with color-coded markers (severity), enhanced high-impact heatmap layer, demo overlays (shelters, evacuation zones, roads), timeline playback, filter controls (type, severity, time), and detailed report views. Supports 13 disaster types.
+    -   **High-Impact Heatmap**: Advanced heatmap visualization that aggregates data from multiple sources (disaster reports, SOS alerts, resource requests) with intelligent weighting based on severity and urgency. Features include:
+        -   Multi-source data aggregation (disaster reports, active SOS alerts, pending resource requests)
+        -   Weighted intensity calculation (SOS alerts receive 1.5x priority multiplier)
+        -   Data source filtering (All Sources, Disaster Reports Only, SOS Alerts Only, Resource Requests Only)
+        -   Visual legend explaining color intensity and data sources
+        -   Automatic marker hiding when heatmap is active to reduce clutter
 -   **Report Submission**: Multi-step form for 13 emergency types, severity, automatic GPS, multi-media upload (photos/videos/voice recordings via MediaRecorder API to S3-compatible storage), and AI validation.
 -   **Resource Management**: Systems for victims to request resources (Resource Request System) and volunteers to offer resources (Aid Offers System), with AI-powered matching, commitment, and status tracking.
 -   **Notification System**: Real-time WebSocket-based notifications with priority levels, various types (e.g., disaster_nearby, resource_request), user preferences, and action URLs.

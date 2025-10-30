@@ -1,12 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Layers, Home, Map as MapIcon, Navigation, Activity } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface LayerControlProps {
   heatmapEnabled: boolean;
   onHeatmapToggle: (enabled: boolean) => void;
+  heatmapDataSource: "all" | "reports" | "sos" | "resources";
+  onHeatmapDataSourceChange: (source: "all" | "reports" | "sos" | "resources") => void;
   sheltersEnabled: boolean;
   onSheltersToggle: (enabled: boolean) => void;
   evacuationZonesEnabled: boolean;
@@ -18,6 +21,8 @@ interface LayerControlProps {
 export function LayerControl({
   heatmapEnabled,
   onHeatmapToggle,
+  heatmapDataSource,
+  onHeatmapDataSourceChange,
   sheltersEnabled,
   onSheltersToggle,
   evacuationZonesEnabled,
@@ -37,7 +42,7 @@ export function LayerControl({
         <div className="flex items-center justify-between">
           <Label htmlFor="heatmap" className="flex items-center gap-2 cursor-pointer">
             <Activity className="w-4 h-4" />
-            <span className="text-sm">Heatmap Density</span>
+            <span className="text-sm">High-Impact Heatmap</span>
           </Label>
           <Switch
             id="heatmap"
@@ -46,6 +51,29 @@ export function LayerControl({
             data-testid="switch-heatmap"
           />
         </div>
+
+        {heatmapEnabled && (
+          <div className="ml-6 space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground">Data Source</Label>
+            <Select value={heatmapDataSource} onValueChange={onHeatmapDataSourceChange}>
+              <SelectTrigger className="h-8" data-testid="select-heatmap-source">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sources</SelectItem>
+                <SelectItem value="reports">Disaster Reports</SelectItem>
+                <SelectItem value="sos">SOS Alerts</SelectItem>
+                <SelectItem value="resources">Resource Requests</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              {heatmapDataSource === "all" && "Combining all data sources"}
+              {heatmapDataSource === "reports" && "Showing disaster report density"}
+              {heatmapDataSource === "sos" && "Showing active SOS alerts"}
+              {heatmapDataSource === "resources" && "Showing pending resource requests"}
+            </p>
+          </div>
+        )}
 
         <div className="border-t pt-3 space-y-3">
           <p className="text-xs text-muted-foreground font-medium">OVERLAYS</p>

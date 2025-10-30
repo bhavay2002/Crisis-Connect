@@ -45,6 +45,7 @@ import {
   Sparkles,
   Award,
   Shield,
+  Zap,
 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -59,6 +60,7 @@ const menuItems = [
   { title: "Submit Report", url: "/submit", icon: PlusCircle, roles: ["citizen", "volunteer", "ngo", "admin"] },
   { title: "Resource Requests", url: "/resource-requests", icon: Package, roles: ["citizen", "volunteer", "ngo", "admin"] },
   { title: "Aid Matching", url: "/aid-matching", icon: Sparkles, roles: ["volunteer", "ngo", "admin"] },
+  { title: "Matching Engine", url: "/matching-engine", icon: Zap, roles: ["volunteer", "ngo", "admin"] },
   { title: "Resource Management", url: "/resource-management", icon: Package, roles: ["ngo", "admin"] },
   { title: "Analytics", url: "/analytics", icon: BarChart3, roles: ["admin", "government"] },
   { title: "My Profile", url: "/profile", icon: User, roles: ["citizen", "volunteer", "ngo", "admin", "government"] },

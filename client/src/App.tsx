@@ -31,6 +31,7 @@ import ReputationDashboard from "@/pages/ReputationDashboard";
 import ClusterManagementPage from "@/pages/ClusterManagementPage";
 import ImageClassification from "@/pages/ImageClassification";
 import PredictiveModeling from "@/pages/PredictiveModeling";
+import MatchingEngine from "@/pages/MatchingEngine";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -69,6 +70,7 @@ function Router() {
           <Route path="/submit-aid-offer" component={SubmitAidOffer} />
           <Route path="/aid-offers/:offerId/matches" component={AidOfferMatches} />
           <Route path="/aid-matching" component={AidMatchingDashboard} />
+          <Route path="/matching-engine" component={MatchingEngine} />
           <Route path="/admin" component={AdminDashboard} />
           <Route path="/resource-management" component={ResourceManagement} />
           <Route path="/analytics" component={AnalyticsDashboard} />

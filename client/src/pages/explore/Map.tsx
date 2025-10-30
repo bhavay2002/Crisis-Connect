@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon } from "react-leaflet";
 import { Icon, LatLngExpression } from "leaflet";
-import { DisasterReport } from "@shared/schema";
+import { DisasterReport, SOSAlert, ResourceRequest } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { formatDistanceToNow, subDays, startOfDay, endOfDay, isWithinInterval } 
 import { Flame, Droplet, Mountain, Wind, Car, AlertTriangle, MapPin, Calendar, AlertCircle, ThumbsUp, ShieldCheck, Biohazard, Construction, Waves, Zap, Droplets, Activity } from "lucide-react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { HeatmapLayer } from "@/components/map/HeatmapLayer";
+import { HeatmapLegend } from "@/components/map/HeatmapLegend";
 import { TimelineControl } from "@/components/map/TimelineControl";
 import { LayerControl } from "@/components/map/LayerControl";
 import "leaflet/dist/leaflet.css";
@@ -122,12 +123,21 @@ export default function Map() {
     end: endOfDay(new Date()),
   });
   const [heatmapEnabled, setHeatmapEnabled] = useState(false);
+  const [heatmapDataSource, setHeatmapDataSource] = useState<"all" | "reports" | "sos" | "resources">("all");
   const [sheltersEnabled, setSheltersEnabled] = useState(false);
   const [evacuationZonesEnabled, setEvacuationZonesEnabled] = useState(false);
   const [roadsEnabled, setRoadsEnabled] = useState(false);
 
   const { data: reports = [], isLoading } = useQuery<DisasterReport[]>({
     queryKey: ["/api/reports"],
+  });
+
+  const { data: sosAlerts = [] } = useQuery<SOSAlert[]>({
+    queryKey: ["/api/sos/active"],
+  });
+
+  const { data: resourceRequests = [] } = useQuery<ResourceRequest[]>({
+    queryKey: ["/api/resource-requests"],
   });
 
   // Filter reports based on selected filters
@@ -194,17 +204,55 @@ export default function Map() {
     return [37.7749, -122.4194]; // Default to San Francisco
   }, [filteredReports]);
 
-  // Prepare heatmap data
+  // Prepare heatmap data with weighted intensity from multiple sources
   const heatmapPoints: [number, number, number][] = useMemo(() => {
-    return filteredReports
-      .filter((r) => r.latitude != null && r.longitude != null)
-      .map((r) => {
-        const lat = parseFloat(r.latitude!);
-        const lng = parseFloat(r.longitude!);
-        const intensity = r.severity === "critical" ? 1.0 : r.severity === "high" ? 0.7 : r.severity === "medium" ? 0.5 : 0.3;
-        return [lat, lng, intensity];
-      });
-  }, [filteredReports]);
+    const points: [number, number, number][] = [];
+
+    // Add disaster reports
+    if (heatmapDataSource === "all" || heatmapDataSource === "reports") {
+      filteredReports
+        .filter((r) => r.latitude != null && r.longitude != null)
+        .forEach((r) => {
+          const lat = parseFloat(r.latitude!);
+          const lng = parseFloat(r.longitude!);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            const intensity = r.severity === "critical" ? 1.0 : r.severity === "high" ? 0.7 : r.severity === "medium" ? 0.5 : 0.3;
+            points.push([lat, lng, intensity]);
+          }
+        });
+    }
+
+    // Add SOS alerts (highest priority - 1.5x intensity)
+    if (heatmapDataSource === "all" || heatmapDataSource === "sos") {
+      sosAlerts
+        .filter((s) => s.latitude != null && s.longitude != null)
+        .forEach((s) => {
+          const lat = parseFloat(s.latitude!);
+          const lng = parseFloat(s.longitude!);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            const baseIntensity = s.severity === "critical" ? 1.0 : s.severity === "high" ? 0.7 : s.severity === "medium" ? 0.5 : 0.3;
+            const intensity = Math.min(baseIntensity * 1.5, 1.0);
+            points.push([lat, lng, intensity]);
+          }
+        });
+    }
+
+    // Add resource requests based on urgency
+    if (heatmapDataSource === "all" || heatmapDataSource === "resources") {
+      resourceRequests
+        .filter((r) => r.latitude != null && r.longitude != null && r.status === "pending")
+        .forEach((r) => {
+          const lat = parseFloat(r.latitude!);
+          const lng = parseFloat(r.longitude!);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            const intensity = r.urgency === "critical" ? 0.9 : r.urgency === "high" ? 0.6 : r.urgency === "medium" ? 0.4 : 0.2;
+            points.push([lat, lng, intensity]);
+          }
+        });
+    }
+
+    return points;
+  }, [filteredReports, sosAlerts, resourceRequests, heatmapDataSource]);
 
   // Calculate date range for timeline
   const dateRange = useMemo(() => {
@@ -458,6 +506,8 @@ export default function Map() {
         <LayerControl
           heatmapEnabled={heatmapEnabled}
           onHeatmapToggle={setHeatmapEnabled}
+          heatmapDataSource={heatmapDataSource}
+          onHeatmapDataSourceChange={setHeatmapDataSource}
           sheltersEnabled={sheltersEnabled}
           onSheltersToggle={setSheltersEnabled}
           evacuationZonesEnabled={evacuationZonesEnabled}
@@ -465,6 +515,11 @@ export default function Map() {
           roadsEnabled={roadsEnabled}
           onRoadsToggle={setRoadsEnabled}
         />
+        
+        {/* Heatmap Legend */}
+        {heatmapEnabled && (
+          <HeatmapLegend dataSource={heatmapDataSource} />
+        )}
         
         {/* Timeline Control */}
         {timelineEnabled && (
