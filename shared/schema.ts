@@ -7,6 +7,7 @@ import {
   integer,
   pgEnum,
   index,
+  uniqueIndex,
   jsonb,
   boolean,
 } from "drizzle-orm/pg-core";
@@ -105,6 +106,9 @@ export const disasterReports = pgTable("disaster_reports", {
     .notNull()
     .references(() => users.id),
   verificationCount: integer("verification_count").notNull().default(0),
+  upvotes: integer("upvotes").notNull().default(0),
+  downvotes: integer("downvotes").notNull().default(0),
+  consensusScore: integer("consensus_score").notNull().default(0),
   confirmedBy: varchar("confirmed_by").references(() => users.id),
   confirmedAt: timestamp("confirmed_at"),
   flagType: flagTypeEnum("flag_type"),
@@ -121,6 +125,9 @@ export const disasterReports = pgTable("disaster_reports", {
 export const insertDisasterReportSchema = createInsertSchema(disasterReports).omit({
   id: true,
   verificationCount: true,
+  upvotes: true,
+  downvotes: true,
+  consensusScore: true,
   createdAt: true,
   updatedAt: true,
   status: true,
@@ -159,6 +166,39 @@ export const insertVerificationSchema = createInsertSchema(verifications).omit({
 
 export type InsertVerification = z.infer<typeof insertVerificationSchema>;
 export type Verification = typeof verifications.$inferSelect;
+
+// Report votes enum
+export const voteTypeEnum = pgEnum("vote_type", [
+  "upvote",
+  "downvote",
+]);
+
+// Report votes table - tracks community upvotes/downvotes for trust rating
+export const reportVotes = pgTable("report_votes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reportId: varchar("report_id")
+    .notNull()
+    .references(() => disasterReports.id),
+  userId: varchar("user_id")
+    .notNull()
+    .references(() => users.id),
+  voteType: voteTypeEnum("vote_type").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_report_votes_report_id").on(table.reportId),
+  index("idx_report_votes_user_id").on(table.userId),
+  uniqueIndex("unique_user_report_vote").on(table.reportId, table.userId),
+]);
+
+export const insertReportVoteSchema = createInsertSchema(reportVotes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertReportVote = z.infer<typeof insertReportVoteSchema>;
+export type ReportVote = typeof reportVotes.$inferSelect;
 
 // Resource request type and urgency enums
 export const resourceTypeEnum = pgEnum("resource_type", [

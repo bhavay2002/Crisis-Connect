@@ -5,7 +5,8 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { 
   insertDisasterReportSchema, 
-  insertVerificationSchema, 
+  insertVerificationSchema,
+  insertReportVoteSchema,
   insertResourceRequestSchema, 
   insertAidOfferSchema,
   insertInventoryItemSchema,
@@ -329,6 +330,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching verification count:", error);
       res.status(500).json({ message: "Failed to fetch verification count" });
+    }
+  });
+
+  // Vote routes (community trust rating)
+  app.post("/api/reports/:reportId/vote", isAuthenticated, verificationLimiter, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { reportId } = req.params;
+      const { voteType } = req.body;
+
+      if (!voteType || !["upvote", "downvote"].includes(voteType)) {
+        return res.status(400).json({ message: "Invalid vote type. Must be 'upvote' or 'downvote'" });
+      }
+
+      const report = await storage.getDisasterReport(reportId);
+      if (!report) {
+        return res.status(404).json({ message: "Report not found" });
+      }
+
+      if (report.userId === userId) {
+        return res.status(400).json({ message: "You cannot vote on your own report" });
+      }
+
+      const validatedData = insertReportVoteSchema.parse({
+        userId,
+        reportId,
+        voteType,
+      });
+
+      const vote = await storage.createOrUpdateVote(validatedData);
+      await storage.updateReportVoteCounts(reportId);
+
+      const updatedReport = await storage.getDisasterReport(reportId);
+      if (updatedReport) {
+        broadcastToAll({ type: "report_vote_updated", data: updatedReport });
+      }
+
+      res.status(200).json(vote);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ message: validationError.message });
+      }
+      console.error("Error creating vote:", error);
+      res.status(500).json({ message: "Failed to create vote" });
+    }
+  });
+
+  app.delete("/api/reports/:reportId/vote", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { reportId } = req.params;
+
+      await storage.deleteVote(userId, reportId);
+      await storage.updateReportVoteCounts(reportId);
+
+      const updatedReport = await storage.getDisasterReport(reportId);
+      if (updatedReport) {
+        broadcastToAll({ type: "report_vote_updated", data: updatedReport });
+      }
+
+      res.status(200).json({ message: "Vote removed successfully" });
+    } catch (error) {
+      console.error("Error deleting vote:", error);
+      res.status(500).json({ message: "Failed to delete vote" });
+    }
+  });
+
+  app.get("/api/reports/:reportId/votes", async (req, res) => {
+    try {
+      const { reportId } = req.params;
+      const counts = await storage.getVoteCountsForReport(reportId);
+      const consensusScore = await storage.calculateConsensusScore(reportId);
+      
+      res.json({ ...counts, consensusScore });
+    } catch (error) {
+      console.error("Error fetching vote counts:", error);
+      res.status(500).json({ message: "Failed to fetch vote counts" });
+    }
+  });
+
+  app.get("/api/reports/:reportId/my-vote", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { reportId } = req.params;
+      
+      const vote = await storage.getUserVoteForReport(userId, reportId);
+      res.json(vote || null);
+    } catch (error) {
+      console.error("Error fetching user vote:", error);
+      res.status(500).json({ message: "Failed to fetch user vote" });
     }
   });
 

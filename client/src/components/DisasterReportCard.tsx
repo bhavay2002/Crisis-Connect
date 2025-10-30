@@ -2,6 +2,8 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Clock, CheckCircle, AlertTriangle, Flame, Droplets, ThumbsUp, ShieldCheck } from "lucide-react";
+import { VotingControls } from "./VotingControls";
+import { TrustBadge } from "./TrustBadge";
 
 interface DisasterReport {
   id: string;
@@ -12,9 +14,13 @@ interface DisasterReport {
   description: string;
   timestamp: string;
   verificationCount: number;
+  upvotes: number;
+  downvotes: number;
+  consensusScore: number;
   status: "reported" | "verified" | "responding" | "resolved";
   confirmedBy?: string | null;
   confirmedAt?: Date | null;
+  aiValidationScore?: number | null;
 }
 
 interface DisasterReportCardProps {
@@ -84,12 +90,15 @@ export default function DisasterReportCard({
                 <Badge variant="outline" className="text-xs uppercase font-semibold">
                   {report.severity}
                 </Badge>
-                {isConfirmed && (
-                  <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-xs" data-testid={`badge-confirmed-${report.id}`}>
-                    <ShieldCheck className="w-3 h-3 mr-1" />
-                    CONFIRMED
-                  </Badge>
-                )}
+                <TrustBadge
+                  consensusScore={report.consensusScore}
+                  verificationCount={report.verificationCount}
+                  upvotes={report.upvotes}
+                  downvotes={report.downvotes}
+                  isConfirmed={isConfirmed}
+                  aiValidationScore={report.aiValidationScore || undefined}
+                  size="sm"
+                />
               </div>
             </div>
           </div>
@@ -99,7 +108,7 @@ export default function DisasterReportCard({
         <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
           {report.description}
         </p>
-        <div className="flex flex-wrap gap-3 text-sm">
+        <div className="flex flex-wrap gap-3 text-sm mb-3">
           <div className="flex items-center gap-1 text-muted-foreground">
             <MapPin className="w-4 h-4" />
             <span className="text-xs">{report.location}</span>
@@ -109,10 +118,16 @@ export default function DisasterReportCard({
             <span className="text-xs">{report.timestamp}</span>
           </div>
           <div className="flex items-center gap-1 text-muted-foreground">
-            <ThumbsUp className="w-4 h-4" />
-            <span className="text-xs" data-testid={`text-upvotes-${report.id}`}>{report.verificationCount} upvotes</span>
+            <CheckCircle className="w-4 h-4" />
+            <span className="text-xs">{report.verificationCount} verifications</span>
           </div>
         </div>
+        <VotingControls
+          reportId={report.id}
+          initialUpvotes={report.upvotes}
+          initialDownvotes={report.downvotes}
+          size="sm"
+        />
       </CardContent>
       <CardFooter className="flex gap-2 flex-wrap">
         <Button
@@ -120,10 +135,10 @@ export default function DisasterReportCard({
           size="sm"
           onClick={onVerify}
           disabled={hasVerified}
-          data-testid={`button-upvote-${report.id}`}
+          data-testid={`button-verify-${report.id}`}
         >
-          <ThumbsUp className="w-4 h-4 mr-1" />
-          {hasVerified ? "Upvoted" : "Upvote"}
+          <CheckCircle className="w-4 h-4 mr-1" />
+          {hasVerified ? "Verified" : "Verify"}
         </Button>
         {canConfirm && (
           <Button

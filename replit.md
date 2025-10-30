@@ -92,6 +92,19 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Updates (October 30, 2025)
 
+### Report Verification System (Latest)
+- **Community Trust Rating**: Users can upvote or downvote disaster reports to indicate trust/reliability
+- **Consensus Scoring Algorithm**: Combines community votes (±5 points per net vote), verifications (+10 points each, max 50), AI validation (0-20 points), and NGO/official confirmation (+30 bonus) to generate a 0-100 consensus score
+- **Trust Badges**: Visual indicators showing trust levels:
+  - Highly Trusted (80-100): Green badge with shield check icon
+  - Trusted (60-79): Blue badge with shield icon
+  - Moderate (40-59): Yellow badge with shield icon
+  - Low Trust (20-39): Orange badge with shield alert icon
+  - Unverified (0-19): Red badge with warning icon
+- **Vote Management**: Users can cast upvote or downvote (or change/remove their vote), cannot vote on own reports
+- **Real-time Updates**: Vote changes broadcast to all connected clients via WebSocket
+- **Database Schema**: New `report_votes` table tracking user votes per report, added `upvotes`, `downvotes`, and `consensusScore` fields to disaster reports
+
 ### Enhanced Map Visualization
 - Added heatmap layer using leaflet.heat for report density visualization with severity-weighted intensity
 - Implemented layer control panel for toggling shelters, evacuation zones, and major roads overlays
@@ -100,8 +113,10 @@ Preferred communication style: Simple, everyday language.
 - Added voice recording capability for incident reports using MediaRecorder API with 5-minute maximum duration and playback preview
 
 ### Technical Implementation
-- New components: `HeatmapLayer.tsx`, `TimelineControl.tsx`, `LayerControl.tsx`, `VoiceRecorder.tsx`
+- New components: `VotingControls.tsx`, `TrustBadge.tsx`, `HeatmapLayer.tsx`, `TimelineControl.tsx`, `LayerControl.tsx`, `VoiceRecorder.tsx`
 - Enhanced Map.tsx with conditional rendering based on layer toggles and timeline state
 - Timeline filtering uses date-fns for interval calculations and real-time report filtering
 - Heatmap intensity calculation based on severity levels (critical=1.0, high=0.7, medium=0.5, low=0.3)
+- Consensus scoring uses weighted algorithm to prevent gaming and ensure reliability
+- Vote operations include rate limiting via existing verification limiter
 - Demo overlay data included for shelters, evacuation zones, and major roads (production requires real data sources)

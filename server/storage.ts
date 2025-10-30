@@ -5,6 +5,8 @@ import {
   type InsertDisasterReport,
   type Verification,
   type InsertVerification,
+  type ReportVote,
+  type InsertReportVote,
   type ResourceRequest,
   type InsertResourceRequest,
   type AidOffer,
@@ -30,6 +32,7 @@ import {
   users,
   disasterReports,
   verifications,
+  reportVotes,
   resourceRequests,
   aidOffers,
   inventoryItems,
@@ -74,6 +77,17 @@ export interface IStorage {
   getUserVerifications(userId: string): Promise<Verification[]>;
   getVerificationCountForReport(reportId: string): Promise<number>;
   incrementReportVerificationCount(reportId: string): Promise<void>;
+  
+  // Vote operations (community trust rating)
+  createOrUpdateVote(vote: InsertReportVote): Promise<ReportVote>;
+  getUserVoteForReport(
+    userId: string,
+    reportId: string
+  ): Promise<ReportVote | undefined>;
+  getVoteCountsForReport(reportId: string): Promise<{ upvotes: number; downvotes: number }>;
+  deleteVote(userId: string, reportId: string): Promise<void>;
+  updateReportVoteCounts(reportId: string): Promise<void>;
+  calculateConsensusScore(reportId: string): Promise<number>;
   
   // Confirmation operations (for NGO/volunteer users)
   confirmReport(reportId: string, userId: string): Promise<DisasterReport | undefined>;
@@ -340,6 +354,96 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date(),
       })
       .where(eq(disasterReports.id, reportId));
+  }
+
+  // Vote operations (community trust rating)
+  async createOrUpdateVote(insertVote: InsertReportVote): Promise<ReportVote> {
+    const [vote] = await db
+      .insert(reportVotes)
+      .values(insertVote)
+      .onConflictDoUpdate({
+        target: [reportVotes.reportId, reportVotes.userId],
+        set: {
+          voteType: insertVote.voteType,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return vote;
+  }
+
+  async getUserVoteForReport(
+    userId: string,
+    reportId: string
+  ): Promise<ReportVote | undefined> {
+    const [vote] = await db
+      .select()
+      .from(reportVotes)
+      .where(
+        and(
+          eq(reportVotes.userId, userId),
+          eq(reportVotes.reportId, reportId)
+        )
+      );
+    return vote;
+  }
+
+  async getVoteCountsForReport(reportId: string): Promise<{ upvotes: number; downvotes: number }> {
+    const votes = await db
+      .select()
+      .from(reportVotes)
+      .where(eq(reportVotes.reportId, reportId));
+    
+    const upvotes = votes.filter(v => v.voteType === "upvote").length;
+    const downvotes = votes.filter(v => v.voteType === "downvote").length;
+    
+    return { upvotes, downvotes };
+  }
+
+  async deleteVote(userId: string, reportId: string): Promise<void> {
+    await db
+      .delete(reportVotes)
+      .where(
+        and(
+          eq(reportVotes.userId, userId),
+          eq(reportVotes.reportId, reportId)
+        )
+      );
+  }
+
+  async updateReportVoteCounts(reportId: string): Promise<void> {
+    const { upvotes, downvotes } = await this.getVoteCountsForReport(reportId);
+    const consensusScore = await this.calculateConsensusScore(reportId);
+    
+    await db
+      .update(disasterReports)
+      .set({
+        upvotes,
+        downvotes,
+        consensusScore,
+        updatedAt: new Date(),
+      })
+      .where(eq(disasterReports.id, reportId));
+  }
+
+  async calculateConsensusScore(reportId: string): Promise<number> {
+    const report = await this.getDisasterReport(reportId);
+    if (!report) return 0;
+    
+    const { upvotes, downvotes } = await this.getVoteCountsForReport(reportId);
+    const verificationCount = report.verificationCount;
+    const aiScore = report.aiValidationScore || 0;
+    const isConfirmed = report.confirmedBy ? 1 : 0;
+    
+    const netVotes = upvotes - downvotes;
+    const voteScore = Math.max(-100, Math.min(100, netVotes * 5));
+    const verificationScore = Math.min(50, verificationCount * 10);
+    const aiScoreNormalized = (aiScore / 100) * 20;
+    const confirmationBonus = isConfirmed * 30;
+    
+    const totalScore = voteScore + verificationScore + aiScoreNormalized + confirmationBonus;
+    
+    return Math.max(0, Math.min(100, Math.round(totalScore)));
   }
   
   // Confirmation operations (for NGO/volunteer users)
