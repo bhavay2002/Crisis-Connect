@@ -618,3 +618,41 @@ export const insertNotificationPreferencesSchema = createInsertSchema(notificati
 
 export type InsertNotificationPreferences = z.infer<typeof insertNotificationPreferencesSchema>;
 export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
+
+// Risk level enum for predictions
+export const riskLevelEnum = pgEnum("risk_level", [
+  "very_low",
+  "low",
+  "medium",
+  "high",
+  "very_high",
+]);
+
+// Disaster predictions table
+export const disasterPredictions = pgTable("disaster_predictions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  disasterType: disasterTypeEnum("disaster_type").notNull(),
+  predictedArea: text("predicted_area").notNull(),
+  latitude: text("latitude").notNull(),
+  longitude: text("longitude").notNull(),
+  radius: integer("radius").notNull(),
+  riskLevel: riskLevelEnum("risk_level").notNull(),
+  confidence: integer("confidence").notNull(),
+  weatherData: jsonb("weather_data"),
+  seismicData: jsonb("seismic_data"),
+  historicalPatterns: jsonb("historical_patterns"),
+  predictionFactors: text("prediction_factors").array().default(sql`ARRAY[]::text[]`),
+  validFrom: timestamp("valid_from").notNull(),
+  validUntil: timestamp("valid_until").notNull(),
+  affectedPopulation: integer("affected_population"),
+  modelVersion: varchar("model_version").default("1.0"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertDisasterPredictionSchema = createInsertSchema(disasterPredictions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDisasterPrediction = z.infer<typeof insertDisasterPredictionSchema>;
+export type DisasterPrediction = typeof disasterPredictions.$inferSelect;

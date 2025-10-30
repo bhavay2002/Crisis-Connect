@@ -29,6 +29,8 @@ import {
   type InsertNotification,
   type NotificationPreferences,
   type InsertNotificationPreferences,
+  type DisasterPrediction,
+  type InsertDisasterPrediction,
   users,
   disasterReports,
   verifications,
@@ -44,6 +46,7 @@ import {
   messages,
   notifications,
   notificationPreferences,
+  disasterPredictions,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -202,6 +205,11 @@ export interface IStorage {
   getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>;
   createNotificationPreferences(preferences: InsertNotificationPreferences): Promise<NotificationPreferences>;
   updateNotificationPreferences(userId: string, preferences: Partial<InsertNotificationPreferences>): Promise<NotificationPreferences | undefined>;
+
+  // Prediction operations
+  getAllPredictions(): Promise<DisasterPrediction[]>;
+  createPrediction(prediction: InsertDisasterPrediction): Promise<DisasterPrediction>;
+  deletePrediction(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1394,6 +1402,27 @@ export class DatabaseStorage implements IStorage {
       .where(eq(notificationPreferences.userId, userId))
       .returning();
     return prefs;
+  }
+
+  // Prediction operations
+  async getAllPredictions(): Promise<DisasterPrediction[]> {
+    const predictions = await db
+      .select()
+      .from(disasterPredictions)
+      .orderBy(desc(disasterPredictions.createdAt));
+    return predictions;
+  }
+
+  async createPrediction(prediction: InsertDisasterPrediction): Promise<DisasterPrediction> {
+    const [created] = await db
+      .insert(disasterPredictions)
+      .values(prediction)
+      .returning();
+    return created;
+  }
+
+  async deletePrediction(id: string): Promise<void> {
+    await db.delete(disasterPredictions).where(eq(disasterPredictions.id, id));
   }
 }
 

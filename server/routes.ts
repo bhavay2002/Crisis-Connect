@@ -34,6 +34,12 @@ import {
 } from "./rateLimiting";
 import { AuditLogger } from "./auditLog";
 import { NotificationService } from "./notificationService";
+import { 
+  generatePredictions, 
+  analyzeHistoricalPatterns,
+  fetchWeatherData,
+  fetchSeismicData
+} from "./services/predictionService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication middleware
@@ -2388,6 +2394,153 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error updating notification preferences:", error);
       res.status(500).json({ message: "Failed to update notification preferences" });
+    }
+  });
+
+  // Prediction routes
+  app.get("/api/predictions", isAuthenticated, async (req: any, res) => {
+    try {
+      const predictions = await storage.getAllPredictions();
+      res.json(predictions);
+    } catch (error) {
+      console.error("Error fetching predictions:", error);
+      res.status(500).json({ message: "Failed to fetch predictions" });
+    }
+  });
+
+  app.post("/api/predictions/generate", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Only allow NGO, Government, and Admin roles to generate predictions
+      if (!user || !["ngo", "admin", "government"].includes(user.role || "citizen")) {
+        return res.status(403).json({ 
+          message: "Access denied. NGO, Government, or Admin role required." 
+        });
+      }
+
+      const { area, latitude, longitude } = req.body;
+
+      if (!area || !latitude || !longitude) {
+        return res.status(400).json({ 
+          message: "Area, latitude, and longitude are required" 
+        });
+      }
+
+      const openWeatherApiKey = process.env.OPENWEATHER_API_KEY;
+
+      const predictions = await generatePredictions(
+        {
+          area,
+          latitude: parseFloat(latitude),
+          longitude: parseFloat(longitude),
+        },
+        openWeatherApiKey
+      );
+
+      // Store predictions in database
+      const storedPredictions = [];
+      for (const prediction of predictions) {
+        const stored = await storage.createPrediction(prediction);
+        storedPredictions.push(stored);
+      }
+
+      res.json(storedPredictions);
+    } catch (error) {
+      console.error("Error generating predictions:", error);
+      res.status(500).json({ message: "Failed to generate predictions" });
+    }
+  });
+
+  app.get("/api/predictions/historical-patterns", isAuthenticated, async (req: any, res) => {
+    try {
+      const { latitude, longitude, radius } = req.query;
+
+      if (!latitude || !longitude) {
+        return res.status(400).json({ 
+          message: "Latitude and longitude are required" 
+        });
+      }
+
+      const patterns = await analyzeHistoricalPatterns(
+        parseFloat(latitude as string),
+        parseFloat(longitude as string),
+        radius ? parseInt(radius as string) : 50
+      );
+
+      res.json(patterns);
+    } catch (error) {
+      console.error("Error fetching historical patterns:", error);
+      res.status(500).json({ message: "Failed to fetch historical patterns" });
+    }
+  });
+
+  app.get("/api/predictions/weather", isAuthenticated, async (req: any, res) => {
+    try {
+      const { latitude, longitude } = req.query;
+
+      if (!latitude || !longitude) {
+        return res.status(400).json({ 
+          message: "Latitude and longitude are required" 
+        });
+      }
+
+      const openWeatherApiKey = process.env.OPENWEATHER_API_KEY;
+      const weatherData = await fetchWeatherData(
+        parseFloat(latitude as string),
+        parseFloat(longitude as string),
+        openWeatherApiKey
+      );
+
+      res.json(weatherData);
+    } catch (error) {
+      console.error("Error fetching weather data:", error);
+      res.status(500).json({ message: "Failed to fetch weather data" });
+    }
+  });
+
+  app.get("/api/predictions/seismic", isAuthenticated, async (req: any, res) => {
+    try {
+      const { latitude, longitude, radius } = req.query;
+
+      if (!latitude || !longitude) {
+        return res.status(400).json({ 
+          message: "Latitude and longitude are required" 
+        });
+      }
+
+      const seismicData = await fetchSeismicData(
+        parseFloat(latitude as string),
+        parseFloat(longitude as string),
+        radius ? parseInt(radius as string) : 100
+      );
+
+      res.json(seismicData);
+    } catch (error) {
+      console.error("Error fetching seismic data:", error);
+      res.status(500).json({ message: "Failed to fetch seismic data" });
+    }
+  });
+
+  app.delete("/api/predictions/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Only allow Admin role to delete predictions
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ 
+          message: "Access denied. Admin role required." 
+        });
+      }
+
+      const { id } = req.params;
+      await storage.deletePrediction(id);
+      res.json({ message: "Prediction deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting prediction:", error);
+      res.status(500).json({ message: "Failed to delete prediction" });
     }
   });
 

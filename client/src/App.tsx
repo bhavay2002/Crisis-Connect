@@ -29,6 +29,8 @@ import UserProfile from "@/pages/UserProfile";
 import IdentityVerification from "@/pages/IdentityVerification";
 import ReputationDashboard from "@/pages/ReputationDashboard";
 import ClusterManagementPage from "@/pages/ClusterManagementPage";
+import ImageClassification from "@/pages/ImageClassification";
+import PredictiveModeling from "@/pages/PredictiveModeling";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -76,6 +78,8 @@ function Router() {
           <Route path="/verify" component={IdentityVerification} />
           <Route path="/reputation" component={ReputationDashboard} />
           <Route path="/clusters" component={ClusterManagementPage} />
+          <Route path="/classify" component={ImageClassification} />
+          <Route path="/predictions" component={PredictiveModeling} />
           <Route path="/select-role" component={RoleSelection} />
           <Route path="/my-reports" component={Dashboard} />
           <Route path="/teams" component={Dashboard} />

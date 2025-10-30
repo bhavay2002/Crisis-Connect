@@ -28,6 +28,8 @@ Preferred communication style: Simple, everyday language.
 -   **Navigation**: Responsive sidebar with role-based menu items.
 -   **Report Verification System**: Users can upvote/downvote reports. A consensus scoring algorithm combines community votes, verifications, AI validation, and NGO/official confirmation to generate a trust score (0-100) with visual trust badges.
 -   **Duplicate Detection & Clustering**: Non-AI-based duplicate detection using text similarity, location proximity, and time/type matching. Automatically analyzes new reports against recent ones, provides bidirectional linking, and offers a Cluster Management UI for viewing and managing clusters.
+-   **Image Classification**: Client-side AI-powered disaster type detection using TensorFlow.js and MobileNet. Users can upload images to automatically identify disaster types (fire, flood, earthquake, storm, road accident, landslide) with confidence scores. No external API keys required - runs entirely in the browser.
+-   **Predictive Modeling**: AI-powered disaster forecasting system that analyzes historical patterns, real-time weather data (OpenWeather API), and seismic activity (USGS API) to predict potential affected areas. Features include risk level assessment (very low to very high), confidence scoring, map visualization with color-coded risk zones, and role-based generation (NGO/Government/Admin only).
 
 ### Backend
 **Framework**: Express.js with TypeScript on Node.js.
