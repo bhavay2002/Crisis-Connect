@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
+import { logger } from "./logger";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
@@ -21,27 +22,27 @@ function initializeEncryptionKey(): void {
       );
     }
     
-    console.warn("⚠️  ENCRYPTION_KEY not set. Using auto-generated key for DEVELOPMENT ONLY.");
-    console.warn("⚠️  For production, set a secure ENCRYPTION_KEY environment variable.");
+    logger.warn("ENCRYPTION_KEY not set. Using auto-generated key for DEVELOPMENT ONLY.");
+    logger.warn("For production, set a secure ENCRYPTION_KEY environment variable.");
     
     try {
       if (fs.existsSync(DEV_KEY_FILE)) {
         key = fs.readFileSync(DEV_KEY_FILE, 'utf8').trim();
-        console.log("📁 Loaded development encryption key from file");
+        logger.info("Loaded development encryption key from file");
       } else {
         key = crypto.randomBytes(32).toString('hex');
         fs.writeFileSync(DEV_KEY_FILE, key, 'utf8');
-        console.log("🔑 Generated new development encryption key and saved to .dev-encryption-key");
+        logger.info("Generated new development encryption key and saved to .dev-encryption-key");
       }
     } catch (error) {
-      console.error("Failed to read/write development key file:", error);
+      logger.error("Failed to read/write development key file", error as Error);
       key = crypto.randomBytes(32).toString('hex');
-      console.log("🔑 Using temporary encryption key (not persisted)");
+      logger.info("Using temporary encryption key (not persisted)");
     }
   }
   
   encryptionKey = crypto.createHash('sha256').update(key).digest();
-  console.log("✅ Message encryption enabled");
+  logger.info("Message encryption enabled");
 }
 
 initializeEncryptionKey();

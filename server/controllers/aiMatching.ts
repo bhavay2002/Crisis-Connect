@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import type { ResourceRequest, AidOffer } from "../shared/schema";
+import { logger } from "../utils/logger";
 
 let openai: OpenAI | null = null;
 
@@ -219,7 +220,7 @@ Format:
         };
       });
     } catch (error) {
-      console.error("AI matching error:", error);
+      logger.error("AI matching error", error as Error);
       // Return empty array on error
       return [];
     }

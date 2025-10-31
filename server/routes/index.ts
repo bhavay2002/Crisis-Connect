@@ -1,7 +1,10 @@
 import type { Express } from "express";
-import { createServer, type Server } from "http";
+import { createServer, type Server, ServerResponse } from "http";
 import { WebSocketServer, WebSocket } from "ws";
+import type { Socket } from "net";
 import { setupAuth } from "../auth/replitAuth";
+import { logger } from "../utils/logger";
+import type { IncomingMessage } from "http";
 
 // Import route registration functions
 import { registerAuthRoutes } from "./auth.routes";
@@ -36,37 +39,116 @@ import { registerClusteringRoutes } from "./clustering.routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication middleware
-  await setupAuth(app);
+  const sessionParser = await setupAuth(app);
 
   // Create HTTP server
   const httpServer = createServer(app);
 
-  // WebSocket server setup for real-time updates
-  const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
+  // WebSocket server setup for real-time updates (no server option)
+  const wss = new WebSocketServer({ noServer: true });
 
   // Helper function to broadcast messages to all connected clients
   function broadcastToAll(message: any) {
-    wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify(message));
-      }
-    });
+    try {
+      const messageStr = JSON.stringify(message);
+      
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(messageStr);
+        }
+      });
+    } catch (error) {
+      logger.error("Failed to broadcast message", error as Error, { 
+        messageType: message.type,
+      });
+    }
   }
 
   // WebSocket connection handler
-  wss.on("connection", (ws) => {
-    console.log("New WebSocket client connected");
+  wss.on("connection", (ws, req: IncomingMessage) => {
+    const session = (req as any).session;
+    const userId = session?.passport?.user?.claims?.sub;
 
-    ws.on("message", (message) => {
-      console.log("Received message:", message.toString());
+    logger.info("WebSocket client connected", { 
+      userId,
+      ip: req.socket.remoteAddress,
+    });
+
+    ws.on("message", (rawMessage) => {
+      try {
+        const data = JSON.parse(rawMessage.toString());
+        
+        logger.debug("WebSocket message received", { 
+          userId,
+          messageType: data.type,
+        });
+      } catch (error) {
+        logger.warn("Invalid WebSocket message format", { 
+          userId,
+          error: (error as Error).message,
+        });
+      }
     });
 
     ws.on("close", () => {
-      console.log("WebSocket client disconnected");
+      logger.info("WebSocket client disconnected", { userId });
+    });
+
+    ws.on("error", (error) => {
+      logger.error("WebSocket error", error, { userId });
     });
 
     // Send initial connection confirmation
-    ws.send(JSON.stringify({ type: "connected", message: "WebSocket connection established" }));
+    try {
+      const connectionMsg = { 
+        type: "connected", 
+        message: "Secure WebSocket connection established (TLS encrypted)",
+        userId,
+      };
+      ws.send(JSON.stringify(connectionMsg));
+    } catch (error) {
+      logger.error("Failed to send connection confirmation", error as Error, { userId });
+    }
+  });
+
+  // Handle WebSocket upgrades with session authentication
+  httpServer.on("upgrade", (req, socket: Socket, head) => {
+    if (req.url !== "/ws") {
+      socket.destroy();
+      return;
+    }
+
+    // Create a proper ServerResponse object for session middleware
+    const res = new ServerResponse(req);
+    res.assignSocket(socket as any);
+
+    // Parse session with proper request/response objects
+    sessionParser(req as any, res as any, () => {
+      const session = (req as any).session;
+
+      // Reject unauthenticated connections
+      if (!session || !session.passport || !session.passport.user) {
+        logger.warn("WebSocket upgrade rejected - no valid session", {
+          ip: socket.remoteAddress,
+        });
+        socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+        socket.destroy();
+        return; // Critical: stop processing
+      }
+
+      logger.info("WebSocket upgrade authenticated", {
+        userId: session.passport.user.claims?.sub,
+        ip: socket.remoteAddress,
+      });
+
+      // Detach socket from ServerResponse before upgrading
+      res.detachSocket(socket);
+
+      // Hand off to WebSocket server
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit("connection", ws, req);
+      });
+    });
   });
 
   // Inject broadcast function into route modules

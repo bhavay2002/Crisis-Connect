@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import type { DisasterReport } from "@shared/schema";
+import { logger } from "../utils/logger";
 
 let openai: OpenAI | null = null;
 
@@ -88,7 +89,7 @@ Consider:
 
       const client = getOpenAIClient();
       if (!client) {
-        console.warn("OpenAI API key not configured, skipping AI validation");
+        logger.warn("OpenAI API key not configured, skipping AI validation");
         return {
           score: 50,
           notes: "AI validation unavailable - API key not configured",
@@ -125,7 +126,7 @@ Consider:
 
       return result;
     } catch (error) {
-      console.error("AI validation error:", error);
+      logger.error("AI validation error", error as Error);
       // Return neutral result on error
       return {
         score: 50,

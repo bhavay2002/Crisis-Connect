@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { logger } from "../utils/logger";
 
 let openai: OpenAI | null = null;
 
@@ -60,7 +61,7 @@ Keep advice:
 
       const client = getOpenAIClient();
       if (!client) {
-        console.warn("OpenAI API key not configured, providing default crisis guidance");
+        logger.warn("OpenAI API key not configured, providing default crisis guidance");
         return {
           response: "Emergency services have been notified. Please stay calm and follow basic safety protocols for your situation. Help is on the way.",
           suggestions: [
@@ -100,7 +101,7 @@ Keep advice:
       const result = JSON.parse(content) as AICrisisGuidanceResult;
       return result;
     } catch (error) {
-      console.error("AI crisis guidance error:", error);
+      logger.error("AI crisis guidance error", error as Error);
       return {
         response: "Emergency services have been notified. Please stay calm and follow basic safety protocols. Help is on the way.",
         suggestions: [
@@ -161,7 +162,7 @@ Keep your response clear, empathetic, and actionable (2-3 paragraphs maximum).`;
       const content = response.choices[0]?.message?.content;
       return content || "I'm unable to provide a response at this time. Please consult with emergency responders for guidance.";
     } catch (error) {
-      console.error("AI chat guidance error:", error);
+      logger.error("AI chat guidance error", error as Error);
       return "I'm experiencing technical difficulties. Please consult with emergency responders or local authorities for guidance.";
     }
   }
