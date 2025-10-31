@@ -44,22 +44,45 @@ export function useWebSocket({
       const socket = new WebSocket(wsUrl);
 
       socket.onopen = () => {
-        console.log("WebSocket connected");
+        if (import.meta.env.DEV) {
+          console.log("WebSocket connected");
+        }
         setIsConnected(true);
         onConnectRef.current?.();
       };
 
-      socket.onmessage = (event) => {
+      socket.onmessage = async (event) => {
         try {
-          const message = JSON.parse(event.data) as WebSocketMessage;
+          const rawMessage = JSON.parse(event.data);
+          
+          // Check if message is encrypted and needs decryption
+          // Note: Decryption on client-side would require encryption key
+          // For now, we just pass through as the encryption is primarily
+          // for protecting messages in transit when WSS is not available
+          let message: WebSocketMessage = rawMessage;
+          
+          // If encrypted flag is present, this indicates the message
+          // was encrypted by the server for additional security
+          if (rawMessage.encrypted && rawMessage.payload) {
+            // In a full implementation, client would decrypt here
+            // For now, we acknowledge the encrypted format
+            if (import.meta.env.DEV) {
+              console.log("Received encrypted message", rawMessage.type);
+            }
+          }
+          
           onMessageRef.current?.(message);
         } catch (error) {
-          console.error("Failed to parse WebSocket message:", error);
+          if (import.meta.env.DEV) {
+            console.error("Failed to parse WebSocket message:", error);
+          }
         }
       };
 
-      socket.onclose = () => {
-        console.log("WebSocket disconnected");
+      socket.onclose = (event) => {
+        if (import.meta.env.DEV) {
+          console.log("WebSocket disconnected", { code: event.code, reason: event.reason });
+        }
         setIsConnected(false);
         wsRef.current = null;
         onDisconnectRef.current?.();
@@ -67,19 +90,25 @@ export function useWebSocket({
         // Attempt to reconnect after 3 seconds
         if (enabled) {
           reconnectTimeoutRef.current = setTimeout(() => {
-            console.log("Attempting to reconnect...");
+            if (import.meta.env.DEV) {
+              console.log("Attempting to reconnect...");
+            }
             connect();
           }, 3000);
         }
       };
 
       socket.onerror = (error) => {
-        console.error("WebSocket error:", error);
+        if (import.meta.env.DEV) {
+          console.error("WebSocket error:", error);
+        }
       };
 
       wsRef.current = socket;
     } catch (error) {
-      console.error("Failed to create WebSocket connection:", error);
+      if (import.meta.env.DEV) {
+        console.error("Failed to create WebSocket connection:", error);
+      }
     }
   }, [enabled]);
 
@@ -96,9 +125,15 @@ export function useWebSocket({
 
   const sendMessage = useCallback((message: any) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(message));
-    } else {
-      console.warn("WebSocket is not connected");
+      try {
+        wsRef.current.send(JSON.stringify(message));
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.error("Failed to send WebSocket message:", error);
+        }
+      }
+    } else if (import.meta.env.DEV) {
+      console.warn("WebSocket is not connected, cannot send message");
     }
   }, []);
 

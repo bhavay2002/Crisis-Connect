@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import compression from "compression";
 import helmet from "helmet";
 import { registerRoutes } from "./routes/index";
 import { setupVite, serveStatic, log } from "./vite";
@@ -32,6 +33,20 @@ if (!isDevelopment) {
     },
   }));
 }
+
+// Enable gzip compression for all responses
+app.use(compression({
+  filter: (req, res) => {
+    // Don't compress responses for Server-Sent Events or WebSocket upgrades
+    if (req.headers['accept'] === 'text/event-stream') {
+      return false;
+    }
+    // Use compression for everything else
+    return compression.filter(req, res);
+  },
+  threshold: 1024, // Only compress responses larger than 1KB
+  level: 6, // Compression level (0-9, 6 is default balance)
+}));
 
 declare module 'http' {
   interface IncomingMessage {

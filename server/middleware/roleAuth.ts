@@ -1,5 +1,6 @@
 import type { RequestHandler } from "express";
 import { storage } from "../db/storage";
+import { logger } from "../utils/logger";
 
 export type UserRole = "citizen" | "volunteer" | "ngo" | "admin";
 
@@ -32,7 +33,10 @@ export function requireRole(...allowedRoles: UserRole[]): RequestHandler {
       req.dbUser = user;
       next();
     } catch (error) {
-      console.error("Error checking user role:", error);
+      logger.error("Error checking user role", error instanceof Error ? error : undefined, { 
+        userId: req.user?.claims?.sub,
+        allowedRoles 
+      });
       res.status(500).json({ message: "Internal server error" });
     }
   };

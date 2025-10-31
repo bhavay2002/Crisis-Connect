@@ -70,6 +70,80 @@ Preferred communication style: Simple, everyday language.
 **Identity Verification**: Email (OTP), Phone (SMS OTP), and simulated Aadhaar verification. Verification status (`emailVerified`, `phoneVerified`, `aadhaarVerified`) tracked.
 **User Reputation System**: Trust score (0-100) based on verified contributions, tracked metrics (e.g., `totalReports`, `verifiedReports`), achievement system with unlockable badges, and trust levels.
 
+## Performance Optimization
+
+### Pagination System
+**Standardized pagination across all API endpoints:**
+- Configurable page size (max 100 items per page)
+- Rich pagination metadata (total, totalPages, hasMore, hasPrevious)
+- Support for sorting and filtering
+- Applied to: disaster reports, resource requests, aid offers
+
+### In-Memory Caching
+**High-performance caching layer for frequently accessed data:**
+- Automatic expiration with configurable TTL (30s to 1 hour)
+- Cache statistics and monitoring (hit rate tracking)
+- Pattern-based invalidation for related data
+- LRU eviction with 1000 entry limit
+- Automatic cleanup every 2 minutes
+- Cached data: reports (5min), user stats (5min), dashboard (2min)
+- Cache management API for admins (`/api/cache/stats`, `/api/cache/clear`)
+
+### Database Indexes
+**Optimized database queries with strategic indexes:**
+- **Disaster Reports**: userId, status, type, severity, createdAt, composite indexes
+- **Verifications**: reportId, userId, unique constraints
+- **Resource Requests**: userId, status, urgency, createdAt, disasterReportId
+- **Report Votes**: reportId, userId, unique user-report constraints
+- Significant performance improvement for filtering, sorting, and joins
+
+### Response Compression
+**Automatic gzip compression for all API responses:**
+- Applied to responses > 1KB
+- 70-80% size reduction for JSON/text
+- Configurable compression level (level 6)
+- Smart filtering (skips WebSockets and streaming)
+
+### Cache Invalidation Strategy
+**Automatic cache invalidation on data changes:**
+- New reports → clears all report lists
+- Updated reports → clears specific report + lists
+- Resource matches → clears related caches
+- Real-time consistency with WebSocket broadcasts
+
+## Security Infrastructure
+
+### WebSocket Security
+**Comprehensive security measures** protect real-time communications:
+
+- **Origin Validation**: CSRF protection validates all WebSocket upgrade requests against allowed origins
+- **Session Authentication**: Every WebSocket connection requires valid authenticated session
+- **Rate Limiting**: Per-IP rate limiting (10 connections per 60s window) prevents DoS attacks
+- **Transport Encryption**: Automatic WSS (WebSocket Secure) in production with TLS
+- **Message-Level Encryption**: AES-GCM encryption for sensitive message types (production only)
+  - Types: chat_message, user_data, location_update, sos_alert, resource_request
+  - Disabled in development for performance (WSS provides sufficient security)
+  - Enable with `FORCE_MESSAGE_ENCRYPTION=true` environment variable
+
+### Background Task Queue
+**In-memory task queue** for non-critical background operations:
+
+- **Async Processing**: Run tasks without blocking API requests
+- **Priority Queue**: Higher priority tasks processed first
+- **Retry Logic**: Automatic retry with configurable max retries (default: 3)
+- **Graceful Shutdown**: Waits up to 30s for in-progress tasks before shutdown
+- **Idle Detection**: Stops polling when queue is empty
+- **API Endpoints**: `/api/tasks/status/:taskId`, `/api/tasks/all`, `/api/tasks/stats`
+- **Limitation**: Tasks stored in memory, lost on restart (use Bull/BullMQ for production-critical tasks)
+
+### Shared Middleware
+**Reusable validation and security middleware**:
+
+- **Authentication**: `requireAuth`, `requireVerifiedIdentity`, `requirePhoneVerification`, `requireEmailVerification`
+- **Validation**: `validateBody`, `validateQuery`, `validateParams` with Zod schemas
+- **Authorization**: `checkOwnership` for resource access control
+- **Error Handling**: `asyncHandler` for consistent async error handling
+
 ## External Dependencies
 -   **Authentication Service**: Replit OIDC provider (`ISSUER_URL`).
 -   **Database**: PostgreSQL via Neon serverless (`DATABASE_URL`).

@@ -36,6 +36,11 @@ import {
 } from "./ai.routes";
 import { registerStorageRoutes } from "./storage.routes";
 import { registerClusteringRoutes } from "./clustering.routes";
+import { tasksRouter } from "./tasks.routes";
+import { registerCacheRoutes } from "./cache.routes";
+import { wsRateLimiter } from "../middleware/wsRateLimiting";
+import { config } from "../config";
+import { encryptWebSocketMessage, shouldEncryptMessage, type SecureWebSocketMessage } from "../utils/wsEncryption";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication middleware
@@ -48,9 +53,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const wss = new WebSocketServer({ noServer: true });
 
   // Helper function to broadcast messages to all connected clients
-  function broadcastToAll(message: any) {
+  async function broadcastToAll(message: any) {
     try {
-      const messageStr = JSON.stringify(message);
+      let messageToSend: SecureWebSocketMessage = message;
+      
+      // Apply message-level encryption for sensitive types in non-TLS environments
+      // or when explicitly enabled for defense-in-depth
+      if (shouldEncryptMessage(message.type)) {
+        messageToSend = await encryptWebSocketMessage(message);
+        logger.debug("Broadcasting encrypted message", {
+          type: message.type,
+          encrypted: true,
+        });
+      }
+      
+      const messageStr = JSON.stringify(messageToSend);
       
       wss.clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
@@ -100,12 +117,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Send initial connection confirmation
     try {
+      // Properly detect TLS: check X-Forwarded-Proto value (case-insensitive) OR socket encryption
+      const forwardedProto = (req.headers['x-forwarded-proto'] as string)?.toLowerCase();
+      const isTLS = forwardedProto === 'https' || !!(req.connection as any).encrypted;
+      
       const connectionMsg = { 
         type: "connected", 
-        message: "Secure WebSocket connection established (TLS encrypted)",
+        message: isTLS 
+          ? "Secure WebSocket connection established (TLS encrypted)" 
+          : `WebSocket connection established${config.isDevelopment ? " (development mode - no TLS)" : ""}`,
         userId,
+        secure: isTLS,
       };
       ws.send(JSON.stringify(connectionMsg));
+      
+      logger.info("WebSocket connection confirmed", {
+        userId,
+        secure: isTLS,
+        protocol: forwardedProto || 'direct',
+      });
     } catch (error) {
       logger.error("Failed to send connection confirmation", error as Error, { userId });
     }
@@ -116,6 +146,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (req.url !== "/ws") {
       socket.destroy();
       return;
+    }
+
+    // Rate limiting based on IP address
+    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || 
+                     socket.remoteAddress || 
+                     'unknown';
+    
+    if (!wsRateLimiter.isAllowed(clientIp)) {
+      logger.warn("WebSocket upgrade rejected - rate limit exceeded", {
+        ip: clientIp,
+      });
+      socket.write("HTTP/1.1 429 Too Many Requests\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+
+    // Origin validation for CSRF protection
+    const origin = req.headers.origin;
+    const host = req.headers.host;
+    
+    if (origin) {
+      const allowedOrigins = [
+        `http://${host}`,
+        `https://${host}`,
+        `http://localhost:5000`,
+        `https://localhost:5000`,
+      ];
+      
+      try {
+        const originUrl = new URL(origin);
+        const isAllowed = allowedOrigins.some(allowed => {
+          try {
+            const allowedUrl = new URL(allowed);
+            return originUrl.protocol === allowedUrl.protocol && 
+                   originUrl.host === allowedUrl.host;
+          } catch {
+            return false;
+          }
+        });
+
+        if (!isAllowed) {
+          logger.warn("WebSocket upgrade rejected - invalid origin", {
+            origin,
+            host,
+            ip: socket.remoteAddress,
+          });
+          socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+          socket.destroy();
+          return;
+        }
+      } catch (error) {
+        logger.warn("WebSocket upgrade rejected - malformed origin", {
+          origin,
+          error: error instanceof Error ? error.message : 'Unknown',
+        });
+        socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+        socket.destroy();
+        return;
+      }
     }
 
     // Create a proper ServerResponse object for session middleware
@@ -130,6 +219,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!session || !session.passport || !session.passport.user) {
         logger.warn("WebSocket upgrade rejected - no valid session", {
           ip: socket.remoteAddress,
+          origin,
         });
         socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
         socket.destroy();
@@ -139,6 +229,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       logger.info("WebSocket upgrade authenticated", {
         userId: session.passport.user.claims?.sub,
         ip: socket.remoteAddress,
+        origin,
       });
 
       // Detach socket from ServerResponse before upgrading
@@ -171,6 +262,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerAIRoutes(app);
   registerStorageRoutes(app);
   registerClusteringRoutes(app);
+  registerCacheRoutes(app);
+  
+  // Register tasks routes
+  app.use("/api/tasks", tasksRouter);
 
   return httpServer;
 }

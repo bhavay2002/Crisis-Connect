@@ -10,6 +10,9 @@ import {
   authLimiter
 } from "../middleware/rateLimiting";
 import { AuditLogger } from "../middleware/auditLog";
+import { extractPaginationParams, getPaginationOffsets, createPaginatedResponse } from "../utils/pagination";
+import { cache, CacheKeys, CacheTTL } from "../utils/cache";
+import { logger } from "../utils/logger";
 
 // Placeholder for broadcast function - will be injected via index.ts
 let broadcastToAll: (message: any) => void = () => {};
@@ -19,27 +22,95 @@ export function setBroadcastFunction(fn: (message: any) => void) {
 }
 
 export function registerReportRoutes(app: Express) {
-  // Get all disaster reports
+  // Get all disaster reports with pagination (database-level)
   app.get("/api/reports", async (req, res) => {
     try {
-      const reports = await storage.getAllDisasterReports();
-      res.json(reports);
+      // Extract pagination parameters
+      const paginationParams = extractPaginationParams(req.query);
+      const { offset, limit } = getPaginationOffsets(paginationParams.page, paginationParams.limit);
+      
+      // Create cache key based on pagination and sorting
+      const cacheKey = CacheKeys.reports(
+        `${offset}_${limit}_${paginationParams.sortBy || 'default'}_${paginationParams.sortOrder}`
+      );
+      
+      // Try to get from cache
+      const cached = cache.get<{ reports: any[]; total: number }>(cacheKey);
+      if (cached) {
+        const paginatedResponse = createPaginatedResponse(
+          cached.reports,
+          cached.total,
+          paginationParams.page,
+          paginationParams.limit
+        );
+        logger.debug("Reports served from cache", { 
+          page: paginationParams.page, 
+          cacheHit: true,
+          total: cached.total,
+        });
+        return res.json(paginatedResponse);
+      }
+      
+      // Get paginated reports directly from database (efficient!)
+      const { reports, total } = await storage.getPaginatedDisasterReports(
+        limit,
+        offset,
+        paginationParams.sortBy,
+        paginationParams.sortOrder
+      );
+      
+      // Cache the results for 2 minutes (frequently changing data)
+      cache.set(cacheKey, { reports, total }, CacheTTL.SHORT);
+      
+      const paginatedResponse = createPaginatedResponse(
+        reports,
+        total,
+        paginationParams.page,
+        paginationParams.limit
+      );
+      
+      logger.debug("Reports fetched from database with pagination", { 
+        page: paginationParams.page, 
+        limit,
+        offset,
+        total,
+        cacheHit: false,
+        sortBy: paginationParams.sortBy,
+        sortOrder: paginationParams.sortOrder,
+      });
+      
+      res.json(paginatedResponse);
     } catch (error) {
-      console.error("Error fetching reports:", error);
+      logger.error("Error fetching reports", error as Error);
       res.status(500).json({ message: "Failed to fetch reports" });
     }
   });
 
-  // Get specific disaster report
+  // Get specific disaster report with caching
   app.get("/api/reports/:id", async (req, res) => {
     try {
-      const report = await storage.getDisasterReport(req.params.id);
+      const reportId = req.params.id;
+      const cacheKey = CacheKeys.report(reportId);
+      
+      // Try to get from cache
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        logger.debug("Report served from cache", { reportId, cacheHit: true });
+        return res.json(cached);
+      }
+      
+      const report = await storage.getDisasterReport(reportId);
       if (!report) {
         return res.status(404).json({ message: "Report not found" });
       }
+      
+      // Cache the report for 5 minutes
+      cache.set(cacheKey, report, CacheTTL.MEDIUM);
+      
+      logger.debug("Report fetched from database", { reportId, cacheHit: false });
       res.json(report);
     } catch (error) {
-      console.error("Error fetching report:", error);
+      logger.error("Error fetching report", error as Error, { reportId: req.params.id });
       res.status(500).json({ message: "Failed to fetch report" });
     }
   });
@@ -98,6 +169,10 @@ export function registerReportRoutes(app: Express) {
       };
 
       const report = await storage.createDisasterReport(reportWithAI);
+      
+      // Invalidate reports cache when new report is created
+      cache.deletePattern(/^reports:/);
+      logger.debug("Invalidated reports cache after creating new report", { reportId: report.id });
       
       // Run automatic duplicate detection using the same recent reports
       const { clusteringService } = await import("../utils/clustering");

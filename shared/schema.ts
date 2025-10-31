@@ -134,7 +134,15 @@ export const disasterReports = pgTable("disaster_reports", {
   similarReportIds: text("similar_report_ids").array().default(sql`ARRAY[]::text[]`),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("idx_disaster_reports_user_id").on(table.userId),
+  index("idx_disaster_reports_status").on(table.status),
+  index("idx_disaster_reports_type").on(table.type),
+  index("idx_disaster_reports_severity").on(table.severity),
+  index("idx_disaster_reports_created_at").on(table.createdAt),
+  index("idx_disaster_reports_status_created_at").on(table.status, table.createdAt),
+  index("idx_disaster_reports_type_severity").on(table.type, table.severity),
+]);
 
 export const insertDisasterReportSchema = createInsertSchema(disasterReports).omit({
   id: true,
@@ -176,7 +184,11 @@ export const verifications = pgTable("verifications", {
     .notNull()
     .references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("idx_verifications_report_id").on(table.reportId),
+  index("idx_verifications_user_id").on(table.userId),
+  uniqueIndex("unique_user_report_verification").on(table.reportId, table.userId),
+]);
 
 export const insertVerificationSchema = createInsertSchema(verifications).omit({
   id: true,
@@ -264,7 +276,13 @@ export const resourceRequests = pgTable("resource_requests", {
   fulfilledAt: timestamp("fulfilled_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("idx_resource_requests_user_id").on(table.userId),
+  index("idx_resource_requests_status").on(table.status),
+  index("idx_resource_requests_urgency").on(table.urgency),
+  index("idx_resource_requests_created_at").on(table.createdAt),
+  index("idx_resource_requests_disaster_report_id").on(table.disasterReportId),
+]);
 
 export const insertResourceRequestSchema = createInsertSchema(resourceRequests).omit({
   id: true,

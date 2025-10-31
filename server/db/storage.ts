@@ -37,8 +37,9 @@ import {
   messages,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, asc, and, sql } from "drizzle-orm";
 import { encryptMessage, decryptMessage, isEncryptionEnabled } from "../utils/encryption";
+import { logger } from "../utils/logger";
 
 export interface IStorage {
   // User operations - Required for Replit Auth
@@ -51,6 +52,12 @@ export interface IStorage {
   // Disaster report operations
   getDisasterReport(id: string): Promise<DisasterReport | undefined>;
   getAllDisasterReports(): Promise<DisasterReport[]>;
+  getPaginatedDisasterReports(
+    limit: number,
+    offset: number,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc'
+  ): Promise<{ reports: DisasterReport[]; total: number }>;
   getDisasterReportsByUser(userId: string): Promise<DisasterReport[]>;
   createDisasterReport(report: InsertDisasterReport): Promise<DisasterReport>;
   updateDisasterReportStatus(
@@ -229,6 +236,34 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(disasterReports)
       .orderBy(desc(disasterReports.createdAt));
+  }
+
+  async getPaginatedDisasterReports(
+    limit: number,
+    offset: number,
+    sortBy?: string,
+    sortOrder: 'asc' | 'desc' = 'desc'
+  ): Promise<{ reports: DisasterReport[]; total: number }> {
+    // Get total count
+    const countResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(disasterReports);
+    const total = Number(countResult[0]?.count || 0);
+
+    // Get paginated results with proper ordering
+    const orderColumn = sortBy === 'severity' ? disasterReports.severity :
+                       sortBy === 'status' ? disasterReports.status :
+                       sortBy === 'type' ? disasterReports.type :
+                       disasterReports.createdAt;
+    
+    const reports = await db
+      .select()
+      .from(disasterReports)
+      .orderBy(sortOrder === 'asc' ? asc(orderColumn) : desc(orderColumn))
+      .limit(limit)
+      .offset(offset);
+
+    return { reports, total };
   }
 
   async getDisasterReportsByUser(userId: string): Promise<DisasterReport[]> {
@@ -992,7 +1027,10 @@ export class DatabaseStorage implements IStorage {
           isEncrypted: true,
         };
       } catch (error) {
-        console.error("Encryption failed, storing message unencrypted:", error);
+        logger.error("Encryption failed, storing message unencrypted", error instanceof Error ? error : undefined, {
+          chatRoomId: message.chatRoomId,
+          messageType: message.messageType
+        });
         messageData = {
           ...message,
           isEncrypted: false,
@@ -1029,7 +1067,10 @@ export class DatabaseStorage implements IStorage {
             }),
           };
         } catch (error) {
-          console.error("Decryption failed for message:", msg.id, error);
+          logger.error("Decryption failed for message", error instanceof Error ? error : undefined, {
+            messageId: msg.id,
+            chatRoomId: msg.chatRoomId
+          });
           return {
             ...msg,
             content: "[Encrypted message - decryption failed]",
@@ -1064,7 +1105,10 @@ export class DatabaseStorage implements IStorage {
             }),
           };
         } catch (error) {
-          console.error("Decryption failed for message:", msg.id, error);
+          logger.error("Decryption failed for message", error instanceof Error ? error : undefined, {
+            messageId: msg.id,
+            chatRoomId: msg.chatRoomId
+          });
           return {
             ...msg,
             content: "[Encrypted message - decryption failed]",
