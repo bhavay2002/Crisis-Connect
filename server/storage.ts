@@ -49,7 +49,7 @@ import {
   disasterPredictions,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, asc, and, sql } from "drizzle-orm";
 import { encryptMessage, decryptMessage, isEncryptionEnabled } from "./encryption";
 
 export interface IStorage {
@@ -111,6 +111,12 @@ export interface IStorage {
   createResourceRequest(request: InsertResourceRequest): Promise<ResourceRequest>;
   getResourceRequest(id: string): Promise<ResourceRequest | undefined>;
   getAllResourceRequests(): Promise<ResourceRequest[]>;
+  getPaginatedResourceRequests(
+    limit: number,
+    offset: number,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc'
+  ): Promise<{ requests: ResourceRequest[]; total: number }>;
   getResourceRequestsByUser(userId: string): Promise<ResourceRequest[]>;
   updateResourceRequestStatus(
     id: string,
@@ -684,6 +690,34 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(resourceRequests)
       .orderBy(desc(resourceRequests.createdAt));
+  }
+
+  async getPaginatedResourceRequests(
+    limit: number,
+    offset: number,
+    sortBy?: string,
+    sortOrder: 'asc' | 'desc' = 'desc'
+  ): Promise<{ requests: ResourceRequest[]; total: number }> {
+    // Get total count
+    const countResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(resourceRequests);
+    const total = Number(countResult[0]?.count || 0);
+
+    // Get paginated results with proper ordering
+    const orderColumn = sortBy === 'urgency' ? resourceRequests.urgency :
+                       sortBy === 'status' ? resourceRequests.status :
+                       sortBy === 'resourceType' ? resourceRequests.resourceType :
+                       resourceRequests.createdAt;
+    
+    const requests = await db
+      .select()
+      .from(resourceRequests)
+      .orderBy(sortOrder === 'asc' ? asc(orderColumn) : desc(orderColumn))
+      .limit(limit)
+      .offset(offset);
+
+    return { requests, total };
   }
 
   async getResourceRequestsByUser(userId: string): Promise<ResourceRequest[]> {

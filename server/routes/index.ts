@@ -5,6 +5,8 @@ import type { Socket } from "net";
 import { setupAuth } from "../auth/replitAuth";
 import { logger } from "../utils/logger";
 import type { IncomingMessage } from "http";
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "../config/swagger";
 
 // Import route registration functions
 import { registerAuthRoutes } from "./auth.routes";
@@ -38,6 +40,7 @@ import { registerStorageRoutes } from "./storage.routes";
 import { registerClusteringRoutes } from "./clustering.routes";
 import { tasksRouter } from "./tasks.routes";
 import { registerCacheRoutes } from "./cache.routes";
+import { registerExportRoutes } from "./export.routes";
 import { wsRateLimiter } from "../middleware/wsRateLimiting";
 import { config } from "../config";
 import { encryptWebSocketMessage, shouldEncryptMessage, type SecureWebSocketMessage } from "../utils/wsEncryption";
@@ -250,7 +253,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setChatBroadcast(broadcastToAll);
   setAIBroadcast(broadcastToAll);
 
-  // Register all routes
+  // API Version Information Endpoint
+  app.get("/api", (req, res) => {
+    res.json({
+      name: "Crisis Connect API",
+      version: "1.0.0",
+      apiVersions: {
+        v1: {
+          status: "active",
+          basePath: "/api/v1",
+          documentation: "/api/v1/docs",
+        },
+      },
+      documentation: "/api/v1/docs",
+      healthCheck: "/api/health",
+    });
+  });
+
+  // Health check endpoint
+  app.get("/api/health", (req, res) => {
+    res.json({
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: config.isDevelopment ? "development" : "production",
+    });
+  });
+
+  // Swagger Documentation - Serve at /api/v1/docs
+  app.use(
+    "/api/v1/docs",
+    swaggerUi.serve,
+    swaggerUi.setup(swaggerSpec, {
+      customCss: ".swagger-ui .topbar { display: none }",
+      customSiteTitle: "Crisis Connect API Documentation",
+    })
+  );
+
+  // Serve OpenAPI spec as JSON
+  app.get("/api/v1/openapi.json", (req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    res.send(swaggerSpec);
+  });
+
+  // Register all routes (all routes already use /api prefix)
+  // For v1 API, routes are registered as-is since they already include /api
+  // To add versioning, we'll update individual route files to use /api/v1
   registerAuthRoutes(app);
   registerReportRoutes(app);
   registerResourceRoutes(app);
@@ -263,6 +311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerStorageRoutes(app);
   registerClusteringRoutes(app);
   registerCacheRoutes(app);
+  registerExportRoutes(app);
   
   // Register tasks routes
   app.use("/api/tasks", tasksRouter);
