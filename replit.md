@@ -1,153 +1,76 @@
 # Crisis Connect - Real-Time Disaster Management Platform
 
 ## Overview
-Crisis Connect is a real-time disaster management and emergency response coordination platform. Its primary goal is to improve data quality and streamline relief operations by enabling rapid, GPS-tracked incident reporting with multimedia, facilitating crowd-sourced verification, and coordinating emergency responses. The platform leverages AI for report validation, duplicate detection, and resource matching, prioritizing a mobile-first approach for speed and clarity in emergency situations.
+Crisis Connect is a real-time disaster management and emergency response coordination platform. Its core purpose is to enhance data quality and streamline relief operations through rapid, GPS-tracked incident reporting with multimedia, crowd-sourced verification, and coordinated emergency responses. The platform utilizes AI for report validation, duplicate detection, and resource matching, with a mobile-first design for speed and clarity in emergency situations.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
-
-## Best Practices Infrastructure
-
-### Code Quality & Scalability
-**Error Handling**: Centralized error handling with custom error classes (`AppError`, `ValidationError`, `NotFoundError`, etc.) and standardized error responses. Global error middleware catches all errors and formats them consistently.
-
-**Configuration Management**: Type-safe configuration module (`server/config`) with Zod validation for all environment variables. Validates on startup and provides type-safe access throughout the application.
-
-**Logging**: Structured logging utility (`server/utils/logger.ts`) with log levels (DEBUG, INFO, WARN, ERROR), contextual information, and request tracing. Production-ready with proper formatting and filtering.
-
-**Validation**: Comprehensive Zod schemas for all operations including inserts, updates, pagination, and filtering. Shared validation utilities in `shared/validation.ts`.
-
-**Architecture Documentation**: Detailed ARCHITECTURE.md file documenting patterns, best practices, migration guides, and scalability strategies.
 
 ## System Architecture
 
 ### Frontend
 **Framework**: React with TypeScript, using Vite.
-**UI/UX**: shadcn/ui (Radix UI + Tailwind CSS) with an Emergency Services Design Pattern and Material Design influences, prioritizing clarity, speed, and mobile-first accessibility.
+**UI/UX**: shadcn/ui (Radix UI + Tailwind CSS) following an Emergency Services Design Pattern and Material Design principles, prioritizing clarity, speed, and mobile-first accessibility.
 **Design System**: Inter font, JetBrains Mono, HSL-based color system with light/dark themes.
 **State Management**: TanStack Query.
-**Routing**: Wouter for client-side routing with authentication protection.
+**Routing**: Wouter for client-side routing.
 **Real-time Updates**: Custom `useWebSocket` hook.
 
 **Key Features**:
--   **Dashboards**:
-    -   **Dashboard**: Statistics and active reports.
-    -   **Volunteer Hub**: Comprehensive overview for volunteers/NGOs including demand-supply, resource management, report verification, and AI-powered insights.
-    -   **Admin Dashboard**: User management, enhanced report moderation (flagging, assignment, notes, status controls), and analytics export (CSV/JSON).
--   **Interactive Map**: Leaflet-based visualization with color-coded markers (severity), enhanced high-impact heatmap layer, demo overlays (shelters, evacuation zones, roads), timeline playback, filter controls (type, severity, time), and detailed report views. Supports 13 disaster types.
-    -   **High-Impact Heatmap**: Advanced heatmap visualization that aggregates data from multiple sources (disaster reports, SOS alerts, resource requests) with intelligent weighting based on severity and urgency. Features include:
-        -   Multi-source data aggregation (disaster reports, active SOS alerts, pending resource requests)
-        -   Weighted intensity calculation (SOS alerts receive 1.5x priority multiplier)
-        -   Data source filtering (All Sources, Disaster Reports Only, SOS Alerts Only, Resource Requests Only)
-        -   Visual legend explaining color intensity and data sources
-        -   Automatic marker hiding when heatmap is active to reduce clutter
--   **Report Submission**: Multi-step form for 13 emergency types, severity, automatic GPS, multi-media upload (photos/videos/voice recordings via MediaRecorder API to S3-compatible storage), and AI validation.
--   **Resource Management**: Systems for victims to request resources (Resource Request System) and volunteers to offer resources (Aid Offers System), with AI-powered matching, commitment, and status tracking.
--   **Notification System**: Real-time WebSocket-based notifications with priority levels, various types (e.g., disaster_nearby, resource_request), user preferences, and action URLs.
--   **Navigation**: Responsive sidebar with role-based menu items.
--   **Report Verification System**: Users can upvote/downvote reports. A consensus scoring algorithm combines community votes, verifications, AI validation, and NGO/official confirmation to generate a trust score (0-100) with visual trust badges.
--   **Duplicate Detection & Clustering**: Non-AI-based duplicate detection using text similarity, location proximity, and time/type matching. Automatically analyzes new reports against recent ones, provides bidirectional linking, and offers a Cluster Management UI for viewing and managing clusters.
--   **Image Classification**: Client-side AI-powered disaster type detection using TensorFlow.js and MobileNet. Users can upload images to automatically identify disaster types (fire, flood, earthquake, storm, road accident, landslide) with confidence scores. No external API keys required - runs entirely in the browser.
--   **Predictive Modeling**: AI-powered disaster forecasting system that analyzes historical patterns, real-time weather data (OpenWeather API), and seismic activity (USGS API) to predict potential affected areas. Features include risk level assessment (very low to very high), confidence scoring, map visualization with color-coded risk zones, and role-based generation (NGO/Government/Admin only).
+-   **Dashboards**: Includes a main dashboard, Volunteer Hub (demand-supply, resource management, report verification, AI insights), and Admin Dashboard (user management, report moderation, analytics export).
+-   **Interactive Map**: Leaflet-based map with color-coded markers, a high-impact heatmap, demo overlays (shelters, evacuation zones), timeline playback, and filter controls for 13 disaster types. The heatmap aggregates data from multiple sources with weighted intensity.
+-   **Report Submission**: Multi-step form supporting 13 emergency types, severity, automatic GPS, multi-media upload (photos/videos/voice recordings to S3-compatible storage), and AI validation.
+-   **Resource Management**: Systems for victims to request resources and volunteers to offer them, with AI-powered matching and status tracking.
+-   **Notification System**: Real-time WebSocket-based notifications with priority levels and user preferences.
+-   **Report Verification System**: Community upvote/downvote, consensus scoring combining votes, AI validation, and NGO/official confirmation for a trust score.
+-   **Duplicate Detection & Clustering**: Non-AI-based detection using text similarity, location proximity, and time/type matching, with a Cluster Management UI.
+-   **Image Classification**: Client-side AI disaster type detection using TensorFlow.js (MobileNet) for uploaded images.
+-   **Predictive Modeling**: AI-powered disaster forecasting using historical patterns, real-time weather (OpenWeather API), and seismic activity (USGS API) to predict affected areas and assess risk levels.
 
 ### Backend
 **Framework**: Express.js with TypeScript on Node.js.
-**API Design**: RESTful API for core functionalities.
+**API Design**: RESTful API.
 **WebSocket Server**: Integrated for real-time notifications.
 **Session Management**: Express sessions with PostgreSQL store.
 **Middleware**: JSON parsing, logging, secure sessions, Passport.js.
 
 ### Database
 **ORM**: Drizzle ORM with PostgreSQL (Neon serverless driver).
-**Schema Highlights**: Sessions, Users (from Replit Auth), Disaster Reports (with 13 types, media URLs, AI score, verification), Verifications, Resource Requests, Aid Offers, Notifications, Notification Preferences. Enhanced `disaster_reports` with `similarReportIds` for clustering.
-**Indexes**: On session expiration.
+**Schema Highlights**: Sessions, Users, Disaster Reports (with 13 types, media URLs, AI score, verification), Verifications, Resource Requests, Aid Offers, Notifications, Notification Preferences.
 **Migrations**: Drizzle Kit.
 
 ### Authentication & Authorization
 **Provider**: Replit Auth (OpenID Connect).
 **Implementation**: Passport.js, session-based authentication, `isAuthenticated` middleware.
-**Role-Based Access Control**: Five roles (Citizen, Volunteer, NGO, Government, Admin) with `requireRole` middleware, secure admin provisioning, and server-side validation.
-**Identity Verification**: Email (OTP), Phone (SMS OTP), and simulated Aadhaar verification. Verification status (`emailVerified`, `phoneVerified`, `aadhaarVerified`) tracked.
-**User Reputation System**: Trust score (0-100) based on verified contributions, tracked metrics (e.g., `totalReports`, `verifiedReports`), achievement system with unlockable badges, and trust levels.
+**Role-Based Access Control**: Five roles (Citizen, Volunteer, NGO, Government, Admin) with `requireRole` middleware.
+**Identity Verification**: Email (OTP), Phone (SMS OTP), and simulated Aadhaar verification.
+**User Reputation System**: Trust score (0-100) based on verified contributions and achievements.
 
-## Performance Optimization
+### Performance Optimization
+-   **Pagination System**: Standardized across API endpoints with configurable page size, metadata, sorting, and filtering.
+-   **In-Memory Caching**: High-performance caching for frequently accessed data (reports, user stats, dashboard) with configurable TTL, LRU eviction, and automatic invalidation.
+-   **Database Indexes**: Strategic indexes on key fields for optimized query performance.
+-   **Response Compression**: Automatic gzip compression for API responses > 1KB.
+-   **Cache Invalidation Strategy**: Automatic invalidation on data changes for real-time consistency.
 
-### Pagination System
-**Standardized pagination across all API endpoints:**
-- Configurable page size (max 100 items per page)
-- Rich pagination metadata (total, totalPages, hasMore, hasPrevious)
-- Support for sorting and filtering
-- Applied to: disaster reports, resource requests, aid offers
-
-### In-Memory Caching
-**High-performance caching layer for frequently accessed data:**
-- Automatic expiration with configurable TTL (30s to 1 hour)
-- Cache statistics and monitoring (hit rate tracking)
-- Pattern-based invalidation for related data
-- LRU eviction with 1000 entry limit
-- Automatic cleanup every 2 minutes
-- Cached data: reports (5min), user stats (5min), dashboard (2min)
-- Cache management API for admins (`/api/cache/stats`, `/api/cache/clear`)
-
-### Database Indexes
-**Optimized database queries with strategic indexes:**
-- **Disaster Reports**: userId, status, type, severity, createdAt, composite indexes
-- **Verifications**: reportId, userId, unique constraints
-- **Resource Requests**: userId, status, urgency, createdAt, disasterReportId
-- **Report Votes**: reportId, userId, unique user-report constraints
-- Significant performance improvement for filtering, sorting, and joins
-
-### Response Compression
-**Automatic gzip compression for all API responses:**
-- Applied to responses > 1KB
-- 70-80% size reduction for JSON/text
-- Configurable compression level (level 6)
-- Smart filtering (skips WebSockets and streaming)
-
-### Cache Invalidation Strategy
-**Automatic cache invalidation on data changes:**
-- New reports → clears all report lists
-- Updated reports → clears specific report + lists
-- Resource matches → clears related caches
-- Real-time consistency with WebSocket broadcasts
-
-## Security Infrastructure
-
-### WebSocket Security
-**Comprehensive security measures** protect real-time communications:
-
-- **Origin Validation**: CSRF protection validates all WebSocket upgrade requests against allowed origins
-- **Session Authentication**: Every WebSocket connection requires valid authenticated session
-- **Rate Limiting**: Per-IP rate limiting (10 connections per 60s window) prevents DoS attacks
-- **Transport Encryption**: Automatic WSS (WebSocket Secure) in production with TLS
-- **Message-Level Encryption**: AES-GCM encryption for sensitive message types (production only)
-  - Types: chat_message, user_data, location_update, sos_alert, resource_request
-  - Disabled in development for performance (WSS provides sufficient security)
-  - Enable with `FORCE_MESSAGE_ENCRYPTION=true` environment variable
-
-### Background Task Queue
-**In-memory task queue** for non-critical background operations:
-
-- **Async Processing**: Run tasks without blocking API requests
-- **Priority Queue**: Higher priority tasks processed first
-- **Retry Logic**: Automatic retry with configurable max retries (default: 3)
-- **Graceful Shutdown**: Waits up to 30s for in-progress tasks before shutdown
-- **Idle Detection**: Stops polling when queue is empty
-- **API Endpoints**: `/api/tasks/status/:taskId`, `/api/tasks/all`, `/api/tasks/stats`
-- **Limitation**: Tasks stored in memory, lost on restart (use Bull/BullMQ for production-critical tasks)
-
-### Shared Middleware
-**Reusable validation and security middleware**:
-
-- **Authentication**: `requireAuth`, `requireVerifiedIdentity`, `requirePhoneVerification`, `requireEmailVerification`
-- **Validation**: `validateBody`, `validateQuery`, `validateParams` with Zod schemas
-- **Authorization**: `checkOwnership` for resource access control
-- **Error Handling**: `asyncHandler` for consistent async error handling
+### Security Infrastructure
+-   **Secret Management**: Fail-fast validation for required environment variables (`SESSION_SECRET`, `ENCRYPTION_KEY`) in production.
+-   **HTTP Security Middleware**: CORS protection, Helmet.js for security headers (CSP, HSTS, X-Content-Type-Options, Cross-Origin Policies).
+-   **Rate Limiting**: Global, authentication, report submission, and AI request specific rate limits.
+-   **Input Sanitization**: `express-mongo-sanitize` to prevent NoSQL injection, payload size limits.
+-   **Cookie Security**: HttpOnly, Secure, SameSite=strict, MaxAge for session cookies.
+-   **Input Validation**: Server-side Zod validation for all API inputs.
+-   **SQL Injection Prevention**: Drizzle ORM parameterized queries.
+-   **WebSocket Security**: Origin validation, session authentication, rate limiting, WSS encryption, and optional AES-GCM message encryption for sensitive types.
+-   **Background Task Queue**: In-memory queue for async processing with retry logic and graceful shutdown.
+-   **Shared Middleware**: Reusable authentication, validation, and authorization middleware.
 
 ## External Dependencies
--   **Authentication Service**: Replit OIDC provider (`ISSUER_URL`).
--   **Database**: PostgreSQL via Neon serverless (`DATABASE_URL`).
--   **OpenAI Service**: Replit AI Integrations (GPT-4o-mini) for report validation and resource matching.
+-   **Authentication Service**: Replit OIDC provider.
+-   **Database**: PostgreSQL via Neon serverless.
+-   **AI Service**: Replit AI Integrations (GPT-4o-mini).
 -   **Object Storage**: Replit App Storage for media uploads.
--   **Google Fonts**: Inter and JetBrains Mono.
--   **Third-party NPM Packages**: Radix UI, TanStack Query, Wouter, Drizzle ORM, Zod, date-fns, lucide-react, Leaflet, leaflet.heat, Uppy, MediaRecorder API.
+-   **Fonts**: Google Fonts (Inter, JetBrains Mono).
+-   **Weather API**: OpenWeather API (for predictive modeling).
+-   **Seismic Activity Data**: USGS API (for predictive modeling).
+-   **NPM Packages**: Radix UI, TanStack Query, Wouter, Drizzle ORM, Zod, date-fns, lucide-react, Leaflet, leaflet.heat, Uppy, MediaRecorder API.

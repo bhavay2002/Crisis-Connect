@@ -14,11 +14,11 @@ const envSchema = z.object({
   // Database
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   
-  // Session
-  SESSION_SECRET: z.string().optional(),
+  // Session (required in production)
+  SESSION_SECRET: z.string().min(32, "SESSION_SECRET must be at least 32 characters").optional(),
   
-  // Encryption
-  ENCRYPTION_KEY: z.string().optional(),
+  // Encryption (required in production)
+  ENCRYPTION_KEY: z.string().length(64, "ENCRYPTION_KEY must be exactly 64 characters (32 bytes hex)").optional(),
   
   // Replit Auth
   ISSUER_URL: z.string().url().optional(),
@@ -55,7 +55,26 @@ type Env = z.infer<typeof envSchema>;
  */
 function validateEnv(): Env {
   try {
-    return envSchema.parse(process.env);
+    const parsed = envSchema.parse(process.env);
+    
+    // In production, enforce required security secrets
+    if (parsed.NODE_ENV === "production") {
+      if (!parsed.SESSION_SECRET) {
+        throw new Error(
+          "❌ SECURITY ERROR: SESSION_SECRET is required in production.\n" +
+          "Generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+        );
+      }
+      
+      if (!parsed.ENCRYPTION_KEY) {
+        throw new Error(
+          "❌ SECURITY ERROR: ENCRYPTION_KEY is required in production.\n" +
+          "Generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
+        );
+      }
+    }
+    
+    return parsed;
   } catch (error) {
     console.error("❌ Invalid environment variables:");
     console.error(error);
@@ -85,13 +104,24 @@ export const config = {
   },
   
   session: {
-    secret: env.SESSION_SECRET || "dev-session-secret-change-in-production",
+    secret: env.SESSION_SECRET || (() => {
+      if (env.NODE_ENV === "production") {
+        throw new Error("SESSION_SECRET is required in production");
+      }
+      console.warn("⚠️  WARNING: Using default SESSION_SECRET. This is only safe in development!");
+      return "dev-session-secret-change-in-production";
+    })(),
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     secure: env.NODE_ENV === "production",
   },
   
   encryption: {
-    key: env.ENCRYPTION_KEY,
+    key: env.ENCRYPTION_KEY || (() => {
+      if (env.NODE_ENV === "production") {
+        throw new Error("ENCRYPTION_KEY is required in production");
+      }
+      return undefined; // Will be handled by encryption.ts for development
+    })(),
   },
   
   auth: {

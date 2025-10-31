@@ -13,16 +13,17 @@ let encryptionKey: Buffer | null = null;
 function initializeEncryptionKey(): void {
   let key = process.env.ENCRYPTION_KEY;
   
-  if (!key || key.length < 32) {
+  if (!key || key.length !== 64) {
     if (process.env.NODE_ENV === 'production') {
       throw new Error(
-        "ENCRYPTION_KEY not set or too short. Message encryption is REQUIRED for production. " +
-        "Set ENCRYPTION_KEY environment variable (minimum 32 characters)"
+        "ENCRYPTION_KEY not set or invalid length. Message encryption is REQUIRED for production. " +
+        "Set ENCRYPTION_KEY environment variable (exactly 64 hex characters). " +
+        "Generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\""
       );
     }
     
-    console.warn("⚠️  ENCRYPTION_KEY not set. Using auto-generated key for DEVELOPMENT ONLY.");
-    console.warn("⚠️  For production, set a secure ENCRYPTION_KEY environment variable.");
+    console.warn("⚠️  ENCRYPTION_KEY not set or invalid. Using auto-generated key for DEVELOPMENT ONLY.");
+    console.warn("⚠️  For production, set a secure ENCRYPTION_KEY environment variable (exactly 64 hex characters).");
     
     try {
       if (fs.existsSync(DEV_KEY_FILE)) {
