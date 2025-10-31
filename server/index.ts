@@ -2,10 +2,13 @@ import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import { registerRoutes } from "./routes/index";
 import { setupVite, serveStatic, log } from "./vite";
+import { config, logConfiguration } from "./config";
+import { logger } from "./utils/logger";
+import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 
 const app = express();
 
-const isDevelopment = process.env.NODE_ENV === "development";
+const isDevelopment = config.isDevelopment;
 
 if (!isDevelopment) {
   app.use(helmet({
@@ -42,30 +45,28 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: false }));
 
+// Structured request logging
 app.use((req, res, next) => {
   const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
+  
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
+    const message = `${req.method} ${req.originalUrl} ${res.statusCode}`;
+    const context = {
+      method: req.method,
+      url: req.originalUrl,
+      statusCode: res.statusCode,
+      duration: `${duration}ms`,
+      userId: (req as any).user?.claims?.sub,
+      ip: req.ip,
+    };
 
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
+    if (res.statusCode >= 500) {
+      logger.error(message, undefined, context);
+    } else if (res.statusCode >= 400) {
+      logger.warn(message, context);
+    } else if (req.originalUrl.startsWith("/api")) {
+      logger.info(message, context);
     }
   });
 
@@ -73,15 +74,16 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Log configuration on startup
+  logConfiguration();
+  
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+  // 404 handler for API routes - must be after API routes but before frontend catch-all
+  app.use("/api", notFoundHandler);
 
-    res.status(status).json({ message });
-    throw err;
-  });
+  // Global error handler for API routes
+  app.use(errorHandler);
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
@@ -96,12 +98,13 @@ app.use((req, res, next) => {
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
+  const port = config.server.port;
   server.listen({
     port,
     host: "0.0.0.0",
     reusePort: true,
   }, () => {
+    logger.info(`Server started successfully`, { port, environment: config.env });
     log(`serving on port ${port}`);
   });
 })();

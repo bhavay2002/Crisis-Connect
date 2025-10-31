@@ -47,6 +47,7 @@ import {
   Users,
   TrendingUp
 } from "lucide-react";
+import { FakeDetectionDetails } from "@/components/FakeDetectionDetails";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -458,6 +459,9 @@ export default function AdminDashboard() {
                           <p className="text-sm">{report.aiValidationNotes}</p>
                         </div>
                       )}
+                      <div className="mt-4">
+                        <FakeDetectionDetails report={report} />
+                      </div>
                     </CardContent>
                     <CardFooter className="flex flex-wrap gap-2">
                       <Button

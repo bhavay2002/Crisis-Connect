@@ -6,6 +6,19 @@ Crisis Connect is a real-time disaster management and emergency response coordin
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Best Practices Infrastructure
+
+### Code Quality & Scalability
+**Error Handling**: Centralized error handling with custom error classes (`AppError`, `ValidationError`, `NotFoundError`, etc.) and standardized error responses. Global error middleware catches all errors and formats them consistently.
+
+**Configuration Management**: Type-safe configuration module (`server/config`) with Zod validation for all environment variables. Validates on startup and provides type-safe access throughout the application.
+
+**Logging**: Structured logging utility (`server/utils/logger.ts`) with log levels (DEBUG, INFO, WARN, ERROR), contextual information, and request tracing. Production-ready with proper formatting and filtering.
+
+**Validation**: Comprehensive Zod schemas for all operations including inserts, updates, pagination, and filtering. Shared validation utilities in `shared/validation.ts`.
+
+**Architecture Documentation**: Detailed ARCHITECTURE.md file documenting patterns, best practices, migration guides, and scalability strategies.
+
 ## System Architecture
 
 ### Frontend
