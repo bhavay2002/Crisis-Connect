@@ -90,7 +90,6 @@ function Router() {
           <Route path="/role-selection" component={RoleSelection} />
           <Route path="/my-reports" component={Dashboard} />
           <Route path="/teams" component={Dashboard} />
-          <Route component={NotFound} />
         </>
       )}
     </Switch>
