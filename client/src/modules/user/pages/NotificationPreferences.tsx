@@ -127,7 +127,7 @@ export default function NotificationPreferences() {
 
   const updatePreferencesMutation = useMutation({
     mutationFn: (data: PreferencesFormData) =>
-      apiRequest("/api/notifications/preferences", "PATCH", data),
+      apiRequest("/api/notifications/preferences", { method: "PATCH", body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/notifications/preferences"] });
       toast({

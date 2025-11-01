@@ -7,7 +7,7 @@ import { FakeDetectionBadge } from "@/components/FakeDetectionBadge";
 interface DisasterReport {
   id: string;
   title: string;
-  type: "fire" | "flood" | "earthquake" | "storm" | "accident" | "other";
+  type: "fire" | "flood" | "earthquake" | "storm" | "road_accident" | "epidemic" | "landslide" | "gas_leak" | "building_collapse" | "chemical_spill" | "power_outage" | "water_contamination" | "other";
   severity: "low" | "medium" | "high" | "critical";
   location: string;
   description: string;
@@ -35,7 +35,14 @@ const typeIcons = {
   flood: Droplets,
   earthquake: AlertTriangle,
   storm: AlertTriangle,
-  accident: AlertTriangle,
+  road_accident: AlertTriangle,
+  epidemic: AlertTriangle,
+  landslide: AlertTriangle,
+  gas_leak: AlertTriangle,
+  building_collapse: AlertTriangle,
+  chemical_spill: AlertTriangle,
+  power_outage: AlertTriangle,
+  water_contamination: Droplets,
   other: AlertTriangle,
 };
 

@@ -52,13 +52,10 @@ export default function RoleSelection() {
 
   const updateRoleMutation = useMutation({
     mutationFn: async (role: string) => {
-      const response = await fetch("/api/auth/update-role", {
+      return await apiRequest("/api/auth/update-role", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role }),
       });
-      if (!response.ok) throw new Error("Failed to update role");
-      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });

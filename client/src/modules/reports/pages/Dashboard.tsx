@@ -47,7 +47,7 @@ export default function Dashboard() {
 
   const handleVerify = async (reportId: string) => {
     try {
-      await apiRequest("POST", `/api/reports/${reportId}/verify`);
+      await apiRequest(`/api/reports/${reportId}/verify`, { method: "POST" });
       toast({
         title: "Report verified",
         description: "Thank you for helping verify this report",

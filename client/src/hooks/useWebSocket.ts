@@ -40,7 +40,16 @@ export function useWebSocket({
 
     try {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      const token = localStorage.getItem("accessToken");
+      
+      if (!token) {
+        if (import.meta.env.DEV) {
+          console.log("No access token found, skipping WebSocket connection");
+        }
+        return;
+      }
+      
+      const wsUrl = `${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`;
       const socket = new WebSocket(wsUrl);
 
       socket.onopen = () => {

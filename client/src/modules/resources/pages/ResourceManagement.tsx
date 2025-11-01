@@ -38,7 +38,7 @@ export default function ResourceManagement() {
 
   const deleteItemMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiRequest(`/api/inventory/${id}`, "DELETE");
+      await apiRequest(`/api/inventory/${id}`, { method: "DELETE" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
@@ -279,7 +279,7 @@ function AddInventoryForm({ onSuccess }: { onSuccess: () => void }) {
 
   const addItemMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest("/api/inventory", "POST", data);
+      return await apiRequest("/api/inventory", { method: "POST", body: JSON.stringify(data) });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Bell, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "wouter";
+import { useWebSocket } from "@/hooks/useWebSocket";
 
 interface Notification {
   id: string;
@@ -45,7 +46,7 @@ export function NotificationBell() {
 
   const markAsReadMutation = useMutation({
     mutationFn: (notificationId: string) =>
-      apiRequest(`/api/notifications/${notificationId}/read`, "PATCH", {}),
+      apiRequest(`/api/notifications/${notificationId}/read`, { method: "PATCH" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread"] });
@@ -54,7 +55,7 @@ export function NotificationBell() {
   });
 
   const markAllAsReadMutation = useMutation({
-    mutationFn: () => apiRequest("/api/notifications/mark-all-read", "PATCH", {}),
+    mutationFn: () => apiRequest("/api/notifications/mark-all-read", { method: "PATCH" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread"] });
@@ -64,7 +65,7 @@ export function NotificationBell() {
 
   const deleteNotificationMutation = useMutation({
     mutationFn: (notificationId: string) =>
-      apiRequest(`/api/notifications/${notificationId}`, "DELETE", {}),
+      apiRequest(`/api/notifications/${notificationId}`, { method: "DELETE" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread"] });
@@ -72,30 +73,15 @@ export function NotificationBell() {
     },
   });
 
-  useEffect(() => {
-    const handleNewNotification = (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === "new_notification") {
-          queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread/count"] });
-        }
-      } catch (error) {
-        console.error("Error handling WebSocket message:", error);
+  useWebSocket({
+    onMessage: useCallback((message: any) => {
+      if (message.type === "new_notification") {
+        queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread/count"] });
       }
-    };
-
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    const ws = new WebSocket(wsUrl);
-
-    ws.onmessage = handleNewNotification;
-
-    return () => {
-      ws.close();
-    };
-  }, []);
+    }, []),
+  });
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
