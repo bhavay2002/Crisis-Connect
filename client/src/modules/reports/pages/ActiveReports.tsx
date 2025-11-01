@@ -40,9 +40,11 @@ export default function ActiveReports() {
   const verifiedReportIds = new Set(userVerifications.map(v => v.reportId));
 
   // Fetch all disaster reports
-  const { data: reports = [], isLoading } = useQuery<DisasterReport[]>({
+  const { data: reportsResponse, isLoading } = useQuery<{ data: DisasterReport[]; pagination: any }>({
     queryKey: ["/api/reports"],
   });
+  
+  const reports = reportsResponse?.data || [];
 
   // WebSocket for real-time updates
   useWebSocket({

@@ -128,9 +128,11 @@ export default function Map() {
   const [evacuationZonesEnabled, setEvacuationZonesEnabled] = useState(false);
   const [roadsEnabled, setRoadsEnabled] = useState(false);
 
-  const { data: reports = [], isLoading } = useQuery<DisasterReport[]>({
+  const { data: reportsResponse, isLoading } = useQuery<{ data: DisasterReport[]; pagination: any }>({
     queryKey: ["/api/reports"],
   });
+  
+  const reports = reportsResponse?.data || [];
 
   const { data: sosAlerts = [] } = useQuery<SOSAlert[]>({
     queryKey: ["/api/sos/active"],

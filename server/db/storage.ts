@@ -48,6 +48,7 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserRole(id: string, role: "citizen" | "volunteer" | "ngo" | "admin"): Promise<User | undefined>;
   getAssignableUsers(): Promise<User[]>;
+  getAllUsers(): Promise<User[]>;
 
   // Disaster report operations
   getDisasterReport(id: string): Promise<DisasterReport | undefined>;
@@ -226,6 +227,10 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(users)
       .where(sql`${users.role} IN ('volunteer', 'ngo', 'admin')`);
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
   }
 
   // Disaster report operations

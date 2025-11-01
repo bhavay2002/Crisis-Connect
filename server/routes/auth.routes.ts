@@ -180,15 +180,14 @@ export function registerAuthRoutes(app: Express) {
   });
 
   // User reputation routes
-  app.get("/api/reputation/:userId", async (req, res) => {
+  // IMPORTANT: Specific routes must come before parameterized routes in Express
+  app.get("/api/reputation/me", isAuthenticated, async (req: any, res) => {
     try {
-      const reputation = await storage.getUserReputation(req.params.userId);
+      const userId = req.user.claims.sub;
+      let reputation = await storage.getUserReputation(userId);
       
       if (!reputation) {
-        const newReputation = await storage.createUserReputation({ 
-          userId: req.params.userId 
-        });
-        return res.json(newReputation);
+        reputation = await storage.createUserReputation({ userId });
       }
       
       res.json(reputation);
@@ -198,13 +197,15 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
-  app.get("/api/reputation/me", isAuthenticated, async (req: any, res) => {
+  app.get("/api/reputation/:userId", async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
-      let reputation = await storage.getUserReputation(userId);
+      const reputation = await storage.getUserReputation(req.params.userId);
       
       if (!reputation) {
-        reputation = await storage.createUserReputation({ userId });
+        const newReputation = await storage.createUserReputation({ 
+          userId: req.params.userId 
+        });
+        return res.json(newReputation);
       }
       
       res.json(reputation);

@@ -78,14 +78,19 @@ export default function AnalyticsDashboard() {
     queryKey: ["/api/analytics/geographic-impact"],
   });
 
-  const { data: reports = [] } = useQuery<Array<{
-    id: string;
-    type: string;
-    severity: string;
-    status: string;
-  }>>({
+  const { data: reportsResponse } = useQuery<{ 
+    data: Array<{
+      id: string;
+      type: string;
+      severity: string;
+      status: string;
+    }>; 
+    pagination: any 
+  }>({
     queryKey: ["/api/reports"],
   });
+  
+  const reports = reportsResponse?.data || [];
 
   const frequencyChartData = disasterFrequency 
     ? Object.entries(disasterFrequency).map(([type, count]) => ({

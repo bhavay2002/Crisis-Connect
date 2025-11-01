@@ -21,9 +21,11 @@ export default function Dashboard() {
   const { toast } = useToast();
 
   // Fetch all disaster reports
-  const { data: reports = [], isLoading } = useQuery<DisasterReport[]>({
+  const { data: reportsResponse, isLoading } = useQuery<{ data: DisasterReport[]; pagination: any }>({
     queryKey: ["/api/reports"],
   });
+  
+  const reports = reportsResponse?.data || [];
 
   // WebSocket for real-time updates
   useWebSocket({

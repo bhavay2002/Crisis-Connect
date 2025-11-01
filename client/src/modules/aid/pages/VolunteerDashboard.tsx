@@ -201,9 +201,11 @@ export default function VolunteerDashboard() {
     queryKey: ["/api/aid-offers/mine"],
   });
 
-  const { data: reports = [], isLoading: isLoadingReports } = useQuery<DisasterReport[]>({
+  const { data: reportsResponse, isLoading: isLoadingReports } = useQuery<{ data: DisasterReport[]; pagination: any }>({
     queryKey: ["/api/reports"],
   });
+  
+  const reports = reportsResponse?.data || [];
 
   const isVolunteerOrNGO = user?.role && ["volunteer", "ngo", "admin"].includes(user.role);
 

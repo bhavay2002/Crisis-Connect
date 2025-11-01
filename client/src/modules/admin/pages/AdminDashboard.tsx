@@ -70,9 +70,11 @@ export default function AdminDashboard() {
   const isAdmin = user?.role === "admin";
 
   // Fetch all reports
-  const { data: allReports = [], isLoading } = useQuery<DisasterReport[]>({
+  const { data: allReportsResponse, isLoading } = useQuery<{ data: DisasterReport[]; pagination: any }>({
     queryKey: ["/api/reports"],
   });
+  
+  const allReports = allReportsResponse?.data || [];
 
   // Fetch prioritized reports
   const { data: prioritizedReports = [] } = useQuery<DisasterReport[]>({
