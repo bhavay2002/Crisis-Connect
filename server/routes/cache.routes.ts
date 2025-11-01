@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { cache } from "../utils/cache";
-import { isAuthenticated } from "../auth/replitAuth";
+import { isAuthenticated } from "../middleware/jwtAuth";
 import { logger } from "../utils/logger";
 
 /**
@@ -27,7 +27,7 @@ export function registerCacheRoutes(app: Express) {
   // Clear all cache (admin only)
   app.post("/api/cache/clear", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { storage } = await import("../db/storage");
       const user = await storage.getUser(userId);
       
@@ -48,7 +48,7 @@ export function registerCacheRoutes(app: Express) {
   // Clear specific cache pattern (admin only)
   app.post("/api/cache/clear/:pattern", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { storage } = await import("../db/storage");
       const user = await storage.getUser(userId);
       

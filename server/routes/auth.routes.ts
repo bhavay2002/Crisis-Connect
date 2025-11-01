@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../db/storage";
-import { isAuthenticated } from "../auth/replitAuth";
+import { isAuthenticated } from "../middleware/jwtAuth";
 import { authLimiter } from "../middleware/rateLimiting";
 import { AuditLogger } from "../middleware/auditLog";
 
@@ -8,7 +8,7 @@ export function registerAuthRoutes(app: Express) {
   // Get current authenticated user
   app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -20,7 +20,7 @@ export function registerAuthRoutes(app: Express) {
   // Get assignable users (for NGO/admin)
   app.get("/api/admin/assignable-users", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
 
       // Get current user
       const user = await storage.getUser(userId);
@@ -46,7 +46,7 @@ export function registerAuthRoutes(app: Express) {
   // Get all users (admin only)
   app.get("/api/admin/users", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
 
       // Get current user
       const user = await storage.getUser(userId);
@@ -72,7 +72,7 @@ export function registerAuthRoutes(app: Express) {
   // Update any user's role (admin only)
   app.post("/api/admin/users/:userId/role", isAuthenticated, authLimiter, async (req: any, res) => {
     try {
-      const currentUserId = req.user.claims.sub;
+      const currentUserId = req.user.userId;
       const { userId } = req.params;
       const { role } = req.body;
       
@@ -123,7 +123,7 @@ export function registerAuthRoutes(app: Express) {
   // Update user role
   app.post("/api/auth/update-role", isAuthenticated, authLimiter, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { role } = req.body;
       
       // Validate role
@@ -170,7 +170,7 @@ export function registerAuthRoutes(app: Express) {
   // Get current user's verifications
   app.get("/api/verifications/mine", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const verifications = await storage.getUserVerifications(userId);
       res.json(verifications);
     } catch (error) {
@@ -183,7 +183,7 @@ export function registerAuthRoutes(app: Express) {
   // IMPORTANT: Specific routes must come before parameterized routes in Express
   app.get("/api/reputation/me", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       let reputation = await storage.getUserReputation(userId);
       
       if (!reputation) {

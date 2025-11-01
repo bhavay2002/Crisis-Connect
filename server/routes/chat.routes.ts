@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../db/storage";
-import { isAuthenticated } from "../auth/replitAuth";
+import { isAuthenticated } from "../middleware/jwtAuth";
 import { 
   insertChatRoomSchema, 
   insertChatRoomMemberSchema,
@@ -20,7 +20,7 @@ export function registerChatRoutes(app: Express) {
   // Create chat room
   app.post("/api/chat/rooms", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const validatedData = insertChatRoomSchema.parse({
         ...req.body,
         createdBy: userId,
@@ -49,7 +49,7 @@ export function registerChatRoutes(app: Express) {
   // Get user's chat rooms
   app.get("/api/chat/rooms", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const chatRooms = await storage.getUserChatRooms(userId);
       res.json(chatRooms);
     } catch (error) {
@@ -61,7 +61,7 @@ export function registerChatRoutes(app: Express) {
   // Get specific chat room
   app.get("/api/chat/rooms/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { id } = req.params;
 
       // Check if user is a member of the chat room
@@ -87,7 +87,7 @@ export function registerChatRoutes(app: Express) {
   // Add member to chat room
   app.post("/api/chat/rooms/:id/members", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { id } = req.params;
       const { userId: newMemberId, role } = req.body;
 
@@ -138,7 +138,7 @@ export function registerChatRoutes(app: Express) {
   // Remove member from chat room
   app.delete("/api/chat/rooms/:id/members/:userId", isAuthenticated, async (req: any, res) => {
     try {
-      const currentUserId = req.user.claims.sub;
+      const currentUserId = req.user.userId;
       const { id, userId: memberToRemove } = req.params;
 
       // Check if chat room exists
@@ -168,7 +168,7 @@ export function registerChatRoutes(app: Express) {
   // Send message to chat room
   app.post("/api/chat/rooms/:roomId/messages", isAuthenticated, messageLimiter, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { roomId } = req.params;
 
       // Check if user is a member of the chat room
@@ -207,7 +207,7 @@ export function registerChatRoutes(app: Express) {
   // Get messages from chat room
   app.get("/api/chat/rooms/:roomId/messages", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { roomId } = req.params;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
 

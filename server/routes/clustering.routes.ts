@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { storage } from "../db/storage";
 import { clusteringService } from "../utils/clustering";
-import { isAuthenticated } from "../auth/replitAuth";
+import { isAuthenticated } from "../middleware/jwtAuth";
 
 export function registerClusteringRoutes(app: Express) {
   app.get("/api/reports/clusters", isAuthenticated, async (req, res) => {

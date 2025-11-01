@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../db/storage";
-import { isAuthenticated } from "../auth/replitAuth";
+import { isAuthenticated } from "../middleware/jwtAuth";
 import { insertDisasterReportSchema, insertVerificationSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { AIValidationService } from "../validators/aiValidation";
@@ -118,7 +118,7 @@ export function registerReportRoutes(app: Express) {
   // Get user's disaster reports
   app.get("/api/reports/user/:userId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const requestedUserId = req.params.userId;
       
       // Ensure users can only access their own reports
@@ -137,7 +137,7 @@ export function registerReportRoutes(app: Express) {
   // Create new disaster report
   app.post("/api/reports", isAuthenticated, reportSubmissionLimiter, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const validatedData = insertDisasterReportSchema.parse({
         ...req.body,
         userId,
@@ -261,7 +261,7 @@ export function registerReportRoutes(app: Express) {
   // Verify a report
   app.post("/api/reports/:reportId/verify", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { reportId } = req.params;
 
       // Check if user already verified this report
@@ -318,7 +318,7 @@ export function registerReportRoutes(app: Express) {
   // Confirm a report (NGO/volunteer users)
   app.post("/api/reports/:reportId/confirm", isAuthenticated, verificationLimiter, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { reportId } = req.params;
 
       // Get current user
@@ -361,7 +361,7 @@ export function registerReportRoutes(app: Express) {
   // Unconfirm a report
   app.delete("/api/reports/:reportId/confirm", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { reportId } = req.params;
 
       // Get current user
@@ -404,7 +404,7 @@ export function registerReportRoutes(app: Express) {
   // Admin: Flag a report
   app.post("/api/admin/reports/:reportId/flag", isAuthenticated, authLimiter, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { reportId } = req.params;
       const { flagType, adminNotes } = req.body;
 
@@ -449,7 +449,7 @@ export function registerReportRoutes(app: Express) {
   // Admin: Unflag a report
   app.delete("/api/admin/reports/:reportId/flag", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { reportId } = req.params;
 
       // Get current user
@@ -487,7 +487,7 @@ export function registerReportRoutes(app: Express) {
   // Admin: Add notes to report
   app.patch("/api/admin/reports/:reportId/notes", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { reportId } = req.params;
       const { notes } = req.body;
 
@@ -524,7 +524,7 @@ export function registerReportRoutes(app: Express) {
   // Admin: Assign report to volunteer
   app.post("/api/admin/reports/:reportId/assign", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { reportId } = req.params;
       const { volunteerId } = req.body;
 
@@ -579,7 +579,7 @@ export function registerReportRoutes(app: Express) {
   // Admin: Unassign report
   app.delete("/api/admin/reports/:reportId/assign", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { reportId } = req.params;
 
       // Get current user
@@ -617,7 +617,7 @@ export function registerReportRoutes(app: Express) {
   // Admin: Get reports by status
   app.get("/api/admin/reports/filter/:status", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { status } = req.params;
 
       // Get current user
@@ -650,7 +650,7 @@ export function registerReportRoutes(app: Express) {
   // Admin: Get flagged reports
   app.get("/api/admin/reports/flagged", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
 
       // Get current user
       const user = await storage.getUser(userId);
@@ -676,7 +676,7 @@ export function registerReportRoutes(app: Express) {
   // Admin: Get prioritized reports
   app.get("/api/admin/reports/prioritized", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
 
       // Get current user
       const user = await storage.getUser(userId);
@@ -702,7 +702,7 @@ export function registerReportRoutes(app: Express) {
   // Admin: Update report priority
   app.patch("/api/admin/reports/:reportId/priority", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { reportId } = req.params;
       const { priorityScore } = req.body;
 

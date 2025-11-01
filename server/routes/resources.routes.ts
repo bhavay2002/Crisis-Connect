@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../db/storage";
-import { isAuthenticated } from "../auth/replitAuth";
+import { isAuthenticated } from "../middleware/jwtAuth";
 import { insertResourceRequestSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { AIMatchingService } from "../modules/ai/matching.controller";
@@ -43,7 +43,7 @@ export function registerResourceRoutes(app: Express) {
   // Get user's resource requests
   app.get("/api/resource-requests/user/:userId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const requestedUserId = req.params.userId;
       
       // Ensure users can only access their own requests
@@ -62,7 +62,7 @@ export function registerResourceRoutes(app: Express) {
   // Create new resource request
   app.post("/api/resource-requests", isAuthenticated, resourceRequestLimiter, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const validatedData = insertResourceRequestSchema.parse({
         ...req.body,
         userId,
@@ -110,7 +110,7 @@ export function registerResourceRoutes(app: Express) {
   // Fulfill a resource request
   app.post("/api/resource-requests/:id/fulfill", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { id } = req.params;
 
       // Check if request exists

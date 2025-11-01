@@ -2,14 +2,15 @@ import type { Express } from "express";
 import { createServer, type Server, ServerResponse } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import type { Socket } from "net";
-import { setupAuth } from "../auth/replitAuth";
 import { logger } from "../utils/logger";
 import type { IncomingMessage } from "http";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "../config/swagger";
+import { verifyAccessToken } from "../utils/jwtUtils";
 
 // Import route registration functions
 import { registerAuthRoutes } from "./auth.routes";
+import { registerNewAuthRoutes } from "./newAuth.routes";
 import { 
   registerReportRoutes, 
   setBroadcastFunction as setReportBroadcast 
@@ -46,9 +47,6 @@ import { config } from "../config";
 import { encryptWebSocketMessage, shouldEncryptMessage, type SecureWebSocketMessage } from "../shared/websocket/ws-encryption";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Setup authentication middleware
-  const sessionParser = await setupAuth(app);
-
   // Create HTTP server
   const httpServer = createServer(app);
 
@@ -86,8 +84,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // WebSocket connection handler
   wss.on("connection", (ws, req: IncomingMessage) => {
-    const session = (req as any).session;
-    const userId = session?.passport?.user?.claims?.sub;
+    const userId = (req as any).userId;
 
     logger.info("WebSocket client connected", { 
       userId,
@@ -210,39 +207,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
 
-    // Create a proper ServerResponse object for session middleware
-    const res = new ServerResponse(req);
-    res.assignSocket(socket as any);
+    // Extract and verify JWT token from query parameters or headers
+    const url = new URL(req.url || '', `http://${req.headers.host}`);
+    const token = url.searchParams.get('token') || req.headers['sec-websocket-protocol'];
 
-    // Parse session with proper request/response objects
-    sessionParser(req as any, res as any, () => {
-      const session = (req as any).session;
-
-      // Reject unauthenticated connections
-      if (!session || !session.passport || !session.passport.user) {
-        logger.warn("WebSocket upgrade rejected - no valid session", {
-          ip: socket.remoteAddress,
-          origin,
-        });
-        socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
-        socket.destroy();
-        return; // Critical: stop processing
-      }
-
-      logger.info("WebSocket upgrade authenticated", {
-        userId: session.passport.user.claims?.sub,
+    if (!token) {
+      logger.warn("WebSocket upgrade rejected - no token", {
         ip: socket.remoteAddress,
         origin,
       });
+      socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+      socket.destroy();
+      return;
+    }
 
-      // Detach socket from ServerResponse before upgrading
-      res.detachSocket(socket);
+    try {
+      const payload = verifyAccessToken(token);
+      (req as any).userId = payload.userId;
+
+      logger.info("WebSocket upgrade authenticated", {
+        userId: payload.userId,
+        ip: socket.remoteAddress,
+        origin,
+      });
 
       // Hand off to WebSocket server
       wss.handleUpgrade(req, socket, head, (ws) => {
         wss.emit("connection", ws, req);
       });
-    });
+    } catch (error) {
+      logger.warn("WebSocket upgrade rejected - invalid token", {
+        ip: socket.remoteAddress,
+        origin,
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
+      socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+      socket.destroy();
+      return;
+    }
   });
 
   // Inject broadcast function into route modules
@@ -299,6 +301,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register all routes (all routes already use /api prefix)
   // For v1 API, routes are registered as-is since they already include /api
   // To add versioning, we'll update individual route files to use /api/v1
+  registerNewAuthRoutes(app);
   registerAuthRoutes(app);
   registerReportRoutes(app);
   registerResourceRoutes(app);

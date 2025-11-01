@@ -109,15 +109,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <SidebarMenu>
                   {filteredMenuItems.map((item) => (
                     <SidebarMenuItem key={item.title}>
-                      <Link href={item.url}>
-                        <SidebarMenuButton
-                          isActive={location === item.url}
-                          data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
-                        >
+                      <SidebarMenuButton
+                        asChild
+                        isActive={location === item.url}
+                        data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        <Link href={item.url}>
                           <item.icon className="w-5 h-5" />
                           <span>{item.title}</span>
-                        </SidebarMenuButton>
-                      </Link>
+                        </Link>
+                      </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
                 </SidebarMenu>

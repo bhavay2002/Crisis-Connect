@@ -39,7 +39,7 @@ export function validateParams<T extends z.ZodType>(schema: T): RequestHandler {
 }
 
 export const requireAuth: RequestHandler = (req: any, res, next) => {
-  if (!req.user || !req.user.claims || !req.user.claims.sub) {
+  if (!req.user || !req.user.userId) {
     logger.warn(`Authentication required but not provided`, { 
       path: req.path,
       method: req.method 
@@ -51,11 +51,11 @@ export const requireAuth: RequestHandler = (req: any, res, next) => {
 
 export const requireVerifiedIdentity: RequestHandler = async (req: any, res, next) => {
   try {
-    if (!req.user?.claims?.sub) {
+    if (!req.user?.userId) {
       return next(new UnauthorizedError("Authentication required"));
     }
 
-    const userId = req.user.claims.sub;
+    const userId = req.user.userId;
     const user = await storage.getUser(userId);
 
     if (!user) {
@@ -79,11 +79,11 @@ export const requireVerifiedIdentity: RequestHandler = async (req: any, res, nex
 
 export const requirePhoneVerification: RequestHandler = async (req: any, res, next) => {
   try {
-    if (!req.user?.claims?.sub) {
+    if (!req.user?.userId) {
       return next(new UnauthorizedError("Authentication required"));
     }
 
-    const userId = req.user.claims.sub;
+    const userId = req.user.userId;
     const user = await storage.getUser(userId);
 
     if (!user) {
@@ -107,11 +107,11 @@ export const requirePhoneVerification: RequestHandler = async (req: any, res, ne
 
 export const requireEmailVerification: RequestHandler = async (req: any, res, next) => {
   try {
-    if (!req.user?.claims?.sub) {
+    if (!req.user?.userId) {
       return next(new UnauthorizedError("Authentication required"));
     }
 
-    const userId = req.user.claims.sub;
+    const userId = req.user.userId;
     const user = await storage.getUser(userId);
 
     if (!user) {

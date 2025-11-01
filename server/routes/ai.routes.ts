@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../db/storage";
-import { isAuthenticated } from "../auth/replitAuth";
+import { isAuthenticated } from "../middleware/jwtAuth";
 import { AICrisisGuidanceService } from "../modules/ai/crisis-guidance.controller";
 import { aiRequestLimiter } from "../middleware/rateLimiting";
 
@@ -15,7 +15,7 @@ export function registerAIRoutes(app: Express) {
   // AI assistance in chat rooms
   app.post("/api/chat/rooms/:roomId/ai-assist", isAuthenticated, aiRequestLimiter, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { roomId } = req.params;
       const { question, emergencyType, severity, description, location } = req.body;
 

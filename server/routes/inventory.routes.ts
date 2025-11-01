@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../db/storage";
-import { isAuthenticated } from "../auth/replitAuth";
+import { isAuthenticated } from "../middleware/jwtAuth";
 import { insertInventoryItemSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 
@@ -8,7 +8,7 @@ export function registerInventoryRoutes(app: Express) {
   // Get all inventory items (Admin/NGO only)
   app.get("/api/inventory", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !["admin", "ngo"].includes(user.role as string)) {
@@ -26,7 +26,7 @@ export function registerInventoryRoutes(app: Express) {
   // Get low stock items (Admin/NGO only)
   app.get("/api/inventory/low-stock", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !["admin", "ngo"].includes(user.role as string)) {
@@ -44,7 +44,7 @@ export function registerInventoryRoutes(app: Express) {
   // Get specific inventory item (Admin/NGO only)
   app.get("/api/inventory/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !["admin", "ngo"].includes(user.role as string)) {
@@ -65,7 +65,7 @@ export function registerInventoryRoutes(app: Express) {
   // Create new inventory item (Admin/NGO only)
   app.post("/api/inventory", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !["admin", "ngo"].includes(user.role as string)) {
@@ -92,7 +92,7 @@ export function registerInventoryRoutes(app: Express) {
   // Update inventory quantity (Admin/NGO only)
   app.patch("/api/inventory/:id/quantity", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !["admin", "ngo"].includes(user.role as string)) {
@@ -118,7 +118,7 @@ export function registerInventoryRoutes(app: Express) {
   // Delete inventory item (Admin/NGO only)
   app.delete("/api/inventory/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || !["admin", "ngo"].includes(user.role as string)) {

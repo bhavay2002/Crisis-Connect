@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../db/storage";
-import { isAuthenticated } from "../auth/replitAuth";
+import { isAuthenticated } from "../middleware/jwtAuth";
 import { insertAidOfferSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { AIMatchingService } from "../modules/ai/matching.controller";
@@ -41,7 +41,7 @@ export function registerAidRoutes(app: Express) {
   // Get user's aid offers
   app.get("/api/aid-offers/user/:userId", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const requestedUserId = req.params.userId;
       
       // Ensure users can only access their own offers
@@ -60,7 +60,7 @@ export function registerAidRoutes(app: Express) {
   // Create new aid offer
   app.post("/api/aid-offers", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const validatedData = insertAidOfferSchema.parse({
         ...req.body,
         userId,
@@ -108,7 +108,7 @@ export function registerAidRoutes(app: Express) {
   // Commit aid offer to a resource request
   app.post("/api/aid-offers/:offerId/commit", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { offerId } = req.params;
       const { requestId } = req.body;
 
@@ -151,7 +151,7 @@ export function registerAidRoutes(app: Express) {
   // Mark aid offer as delivered
   app.post("/api/aid-offers/:offerId/deliver", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { offerId } = req.params;
 
       // Check if offer exists and user owns it
@@ -210,7 +210,7 @@ export function registerAidRoutes(app: Express) {
   // Run automated batch matching for all available offers and pending requests
   app.post("/api/matching/run-batch", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
 
       // Only NGOs, admins, and volunteers can run batch matching
@@ -301,7 +301,7 @@ export function registerAidRoutes(app: Express) {
   // Get matching engine analytics
   app.get("/api/matching/analytics", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
 
       // Only NGOs, admins, and volunteers can view analytics

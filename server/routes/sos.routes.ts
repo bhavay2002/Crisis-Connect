@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../db/storage";
-import { isAuthenticated } from "../auth/replitAuth";
+import { isAuthenticated } from "../middleware/jwtAuth";
 import { insertSOSAlertSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 
@@ -15,7 +15,7 @@ export function registerSOSRoutes(app: Express) {
   // Create SOS alert
   app.post("/api/sos", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const validatedData = insertSOSAlertSchema.parse({
         ...req.body,
         userId,
@@ -40,7 +40,7 @@ export function registerSOSRoutes(app: Express) {
   // Get all SOS alerts (responders only)
   app.get("/api/sos", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
 
       if (!user) {
@@ -65,7 +65,7 @@ export function registerSOSRoutes(app: Express) {
   // Get active SOS alerts (responders only)
   app.get("/api/sos/active", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
 
       if (!user) {
@@ -90,7 +90,7 @@ export function registerSOSRoutes(app: Express) {
   // Get user's own SOS alerts
   app.get("/api/sos/mine", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const alerts = await storage.getSOSAlertsByUser(userId);
       res.json(alerts);
     } catch (error) {
@@ -116,7 +116,7 @@ export function registerSOSRoutes(app: Express) {
   // Respond to SOS alert (responders only)
   app.post("/api/sos/:id/respond", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { id } = req.params;
 
       // Get current user
@@ -156,7 +156,7 @@ export function registerSOSRoutes(app: Express) {
   // Resolve SOS alert
   app.post("/api/sos/:id/resolve", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { id } = req.params;
 
       // Check if SOS alert exists
@@ -189,7 +189,7 @@ export function registerSOSRoutes(app: Express) {
   // Update SOS alert status
   app.patch("/api/sos/:id/status", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const { id } = req.params;
       const { status } = req.body;
 

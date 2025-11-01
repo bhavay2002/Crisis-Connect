@@ -8,6 +8,8 @@ import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
 
 // Pages - Organized by feature modules
 import Landing from "@/modules/auth/pages/Landing";
+import Login from "@/modules/auth/pages/Login";
+import Register from "@/modules/auth/pages/Register";
 import RoleSelection from "@/modules/auth/pages/RoleSelection";
 import Dashboard from "@/modules/reports/pages/Dashboard";
 import ActiveReports from "@/modules/reports/pages/ActiveReports";
@@ -54,6 +56,8 @@ function Router() {
       {!isAuthenticated ? (
         <>
           <Route path="/" component={Landing} />
+          <Route path="/login" component={Login} />
+          <Route path="/register" component={Register} />
           <Route path="/:rest*" component={Landing} />
         </>
       ) : (
@@ -83,6 +87,7 @@ function Router() {
           <Route path="/classify" component={ImageClassification} />
           <Route path="/predictions" component={PredictiveModeling} />
           <Route path="/select-role" component={RoleSelection} />
+          <Route path="/role-selection" component={RoleSelection} />
           <Route path="/my-reports" component={Dashboard} />
           <Route path="/teams" component={Dashboard} />
           <Route component={NotFound} />

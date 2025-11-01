@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { isAuthenticated } from "../auth/replitAuth";
+import { isAuthenticated } from "../middleware/jwtAuth";
 import { ObjectStorageService, ObjectNotFoundError } from "../shared/storage/object-storage";
 
 export function registerStorageRoutes(app: Express) {
@@ -45,7 +45,7 @@ export function registerStorageRoutes(app: Express) {
       return res.status(400).json({ error: "mediaURL is required" });
     }
 
-    const userId = req.user.claims.sub;
+    const userId = req.user.userId;
 
     try {
       const objectStorageService = new ObjectStorageService();

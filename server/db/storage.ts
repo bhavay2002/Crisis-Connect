@@ -42,11 +42,13 @@ import { encryptMessage, decryptMessage, isEncryptionEnabled } from "../shared/s
 import { logger } from "../utils/logger";
 
 export interface IStorage {
-  // User operations - Required for Replit Auth
+  // User operations
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: { email: string; password: string; name: string; role?: string; refreshToken?: string | null }): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserRole(id: string, role: "citizen" | "volunteer" | "ngo" | "admin"): Promise<User | undefined>;
+  updateUserRefreshToken(id: string, refreshToken: string | null): Promise<void>;
   getAssignableUsers(): Promise<User[]>;
   getAllUsers(): Promise<User[]>;
 
@@ -198,6 +200,20 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async createUser(userData: { email: string; password: string; name: string; role?: string; refreshToken?: string | null }): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: userData.email,
+        password: userData.password,
+        name: userData.name,
+        role: (userData.role as "citizen" | "volunteer" | "ngo" | "admin" | "government") || "citizen",
+        refreshToken: userData.refreshToken || null,
+      })
+      .returning();
+    return user;
+  }
+
   async upsertUser(userData: UpsertUser): Promise<User> {
     const [user] = await db
       .insert(users)
@@ -220,6 +236,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return user;
+  }
+
+  async updateUserRefreshToken(id: string, refreshToken: string | null): Promise<void> {
+    await db
+      .update(users)
+      .set({ refreshToken, updatedAt: new Date() })
+      .where(eq(users.id, id));
   }
 
   async getAssignableUsers(): Promise<User[]> {

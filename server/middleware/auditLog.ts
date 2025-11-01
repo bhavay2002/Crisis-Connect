@@ -13,6 +13,10 @@ export type AuditAction =
   | "aid_offer_status_changed"
   | "user_created"
   | "user_deleted"
+  | "user_registered"
+  | "user_login_success"
+  | "user_login_failed"
+  | "user_logout"
   | "sensitive_data_accessed";
 
 export interface AuditLogEntry {
@@ -184,6 +188,54 @@ export class AuditLogger {
       action: "sensitive_data_accessed",
       userId,
       metadata: { resource },
+      ipAddress: req?.ip,
+      userAgent: req?.get('user-agent'),
+    });
+  }
+
+  static async logUserRegistration(
+    userId: string,
+    req?: any
+  ): Promise<void> {
+    await this.log({
+      action: "user_registered",
+      userId,
+      ipAddress: req?.ip,
+      userAgent: req?.get('user-agent'),
+    });
+  }
+
+  static async logSuccessfulLogin(
+    userId: string,
+    req?: any
+  ): Promise<void> {
+    await this.log({
+      action: "user_login_success",
+      userId,
+      ipAddress: req?.ip,
+      userAgent: req?.get('user-agent'),
+    });
+  }
+
+  static async logFailedLogin(
+    email: string,
+    req?: any
+  ): Promise<void> {
+    await this.log({
+      action: "user_login_failed",
+      userId: email,
+      ipAddress: req?.ip,
+      userAgent: req?.get('user-agent'),
+    });
+  }
+
+  static async logUserLogout(
+    userId: string,
+    req?: any
+  ): Promise<void> {
+    await this.log({
+      action: "user_logout",
+      userId,
       ipAddress: req?.ip,
       userAgent: req?.get('user-agent'),
     });

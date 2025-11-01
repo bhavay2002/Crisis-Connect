@@ -8,25 +8,27 @@ export type UserRole = "citizen" | "volunteer" | "ngo" | "admin";
 export function requireRole(...allowedRoles: UserRole[]): RequestHandler {
   return async (req: any, res, next) => {
     try {
-      // Check if user is authenticated
-      if (!req.user || !req.user.claims) {
+      // Check if user is authenticated (JWT auth sets req.user with userId, email, role)
+      if (!req.user || !req.user.userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      const userId = req.user.userId;
+      const userRole = req.user.role;
 
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      // Check if user has one of the allowed roles
-      if (!allowedRoles.includes(user.role as UserRole)) {
+      // Check if user has one of the allowed roles (from JWT payload)
+      if (!allowedRoles.includes(userRole as UserRole)) {
         return res.status(403).json({
           message: "Forbidden: Insufficient permissions",
           required: allowedRoles,
-          current: user.role,
+          current: userRole,
         });
+      }
+
+      // Optionally fetch full user data if needed
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
       }
 
       // Attach user to request for use in route handlers
@@ -34,7 +36,7 @@ export function requireRole(...allowedRoles: UserRole[]): RequestHandler {
       next();
     } catch (error) {
       logger.error("Error checking user role", error instanceof Error ? error : undefined, { 
-        userId: req.user?.claims?.sub,
+        userId: req.user?.userId,
         allowedRoles 
       });
       res.status(500).json({ message: "Internal server error" });

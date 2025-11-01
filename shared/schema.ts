@@ -34,14 +34,12 @@ export const userRoleEnum = pgEnum("user_role", [
   "government",
 ]);
 
-// Users table - Required for Replit Auth
+// Users table
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique().notNull(),
-  name: text("name"),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
+  password: varchar("password").notNull(),
+  name: text("name").notNull(),
   role: userRoleEnum("role").default("citizen"),
   phoneNumber: varchar("phone_number"),
   phoneVerified: timestamp("phone_verified"),
@@ -53,6 +51,8 @@ export const users = pgTable("users", {
   aadhaarNumber: varchar("aadhaar_number", { length: 12 }),
   aadhaarVerified: timestamp("aadhaar_verified"),
   identityVerifiedAt: timestamp("identity_verified_at"),
+  refreshToken: text("refresh_token"),
+  profileImageUrl: varchar("profile_image_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

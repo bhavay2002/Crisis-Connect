@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { isAuthenticated } from "../auth/replitAuth";
+import { isAuthenticated } from "../middleware/jwtAuth";
 import { storage } from "../db/storage";
 import { StreamExporter } from "../utils/streamExport";
 import { logger } from "../utils/logger";
@@ -12,7 +12,7 @@ export function registerExportRoutes(app: Express) {
    */
   app.get("/api/exports/reports/csv", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
 
       // Only allow admins and NGOs to export all reports
@@ -66,7 +66,7 @@ export function registerExportRoutes(app: Express) {
    */
   app.get("/api/exports/reports/json", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
 
       if (!user || !["admin", "ngo"].includes(user.role as string)) {
@@ -106,7 +106,7 @@ export function registerExportRoutes(app: Express) {
    */
   app.get("/api/exports/resources/csv", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
 
       if (!user || !["admin", "ngo"].includes(user.role as string)) {

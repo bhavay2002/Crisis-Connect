@@ -5,7 +5,11 @@ import heroImage from "@assets/generated_images/Emergency_response_team_coordina
 
 export default function Landing() {
   const handleLogin = () => {
-    window.location.href = "/api/login";
+    window.location.href = "/login";
+  };
+
+  const handleRegister = () => {
+    window.location.href = "/register";
   };
 
   return (
@@ -33,7 +37,7 @@ export default function Landing() {
             <div className="flex flex-wrap gap-4 mb-12">
               <Button
                 size="lg"
-                onClick={handleLogin}
+                onClick={handleRegister}
                 className="text-lg px-8 py-6"
                 data-testid="button-get-started"
               >

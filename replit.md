@@ -40,8 +40,11 @@ Preferred communication style: Simple, everyday language.
 **Migrations**: Drizzle Kit.
 
 ### Authentication & Authorization
-**Provider**: Replit Auth (OpenID Connect).
-**Implementation**: Passport.js, session-based authentication, `isAuthenticated` middleware.
+**Provider**: JWT-based authentication with access and refresh tokens.
+**Implementation**: Custom JWT middleware (`jwtAuth`), bcrypt password hashing, token refresh flow.
+**Token Security**: Access tokens (15min expiry) for API requests, refresh tokens (7 days) stored in httpOnly cookies for XSS prevention.
+**Authentication Endpoints**: `/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout`, `/api/auth/me`.
+**Security Features**: Rate limiting on auth endpoints, audit logging for all auth events (login, logout, registration, failures), password strength validation.
 **Role-Based Access Control**: Five roles (Citizen, Volunteer, NGO, Government, Admin) with `requireRole` middleware.
 **Identity Verification**: Email (OTP), Phone (SMS OTP), and simulated Aadhaar verification.
 **User Reputation System**: Trust score (0-100) based on verified contributions and achievements.
@@ -66,7 +69,6 @@ Preferred communication style: Simple, everyday language.
 -   **Shared Middleware**: Reusable authentication, validation, and authorization middleware.
 
 ## External Dependencies
--   **Authentication Service**: Replit OIDC provider.
 -   **Database**: PostgreSQL via Neon serverless.
 -   **AI Service**: Replit AI Integrations (GPT-4o-mini).
 -   **Object Storage**: Replit App Storage for media uploads.

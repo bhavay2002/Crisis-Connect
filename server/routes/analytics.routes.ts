@@ -1,12 +1,12 @@
 import type { Express } from "express";
 import { storage } from "../db/storage";
-import { isAuthenticated } from "../auth/replitAuth";
+import { isAuthenticated } from "../middleware/jwtAuth";
 
 export function registerAnalyticsRoutes(app: Express) {
   // Get analytics events (Admin only)
   app.get("/api/analytics/events", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || user.role !== "admin") {
@@ -25,7 +25,7 @@ export function registerAnalyticsRoutes(app: Express) {
   // Get analytics summary (Admin only)
   app.get("/api/analytics/summary", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || user.role !== "admin") {
@@ -61,7 +61,7 @@ export function registerAnalyticsRoutes(app: Express) {
   // Get disaster frequency data (Admin only)
   app.get("/api/analytics/disaster-frequency", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || user.role !== "admin") {
@@ -86,7 +86,7 @@ export function registerAnalyticsRoutes(app: Express) {
   // Get geographic impact data (Admin only)
   app.get("/api/analytics/geographic-impact", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.userId;
       const user = await storage.getUser(userId);
       
       if (!user || user.role !== "admin") {
