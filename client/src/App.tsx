@@ -6,32 +6,32 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
 
-// Pages
-import Landing from "@/pages/auth/Landing";
-import Dashboard from "@/pages/feed/Dashboard";
-import ActiveReports from "@/pages/feed/ActiveReports";
-import SubmitReport from "@/pages/SubmitReport";
-import RoleSelection from "@/pages/auth/RoleSelection";
-import Map from "@/pages/explore/Map";
-import ResourceRequests from "@/pages/ResourceRequests";
-import SubmitResourceRequest from "@/pages/SubmitResourceRequest";
-import AidOffers from "@/pages/AidOffers";
-import SubmitAidOffer from "@/pages/SubmitAidOffer";
-import AidOfferMatches from "@/pages/AidOfferMatches";
-import AidMatchingDashboard from "@/pages/AidMatchingDashboard";
-import AdminDashboard from "@/pages/feed/AdminDashboard";
-import VolunteerDashboard from "@/pages/VolunteerDashboard";
-import ResourceManagement from "@/pages/ResourceManagement";
-import AnalyticsDashboard from "@/pages/feed/AnalyticsDashboard";
-import Notifications from "@/pages/Notifications";
-import NotificationPreferences from "@/pages/NotificationPreferences";
-import UserProfile from "@/pages/UserProfile";
-import IdentityVerification from "@/pages/IdentityVerification";
-import ReputationDashboard from "@/pages/ReputationDashboard";
-import ClusterManagementPage from "@/pages/ClusterManagementPage";
-import ImageClassification from "@/pages/ImageClassification";
-import PredictiveModeling from "@/pages/PredictiveModeling";
-import MatchingEngine from "@/pages/MatchingEngine";
+// Pages - Organized by feature modules
+import Landing from "@/modules/auth/pages/Landing";
+import RoleSelection from "@/modules/auth/pages/RoleSelection";
+import Dashboard from "@/modules/reports/pages/Dashboard";
+import ActiveReports from "@/modules/reports/pages/ActiveReports";
+import SubmitReport from "@/modules/reports/pages/SubmitReport";
+import ResourceRequests from "@/modules/resources/pages/ResourceRequests";
+import ResourceManagement from "@/modules/resources/pages/ResourceManagement";
+import SubmitResourceRequest from "@/modules/resources/pages/SubmitResourceRequest";
+import AidOffers from "@/modules/aid/pages/AidOffers";
+import SubmitAidOffer from "@/modules/aid/pages/SubmitAidOffer";
+import AidOfferMatches from "@/modules/aid/pages/AidOfferMatches";
+import AidMatchingDashboard from "@/modules/aid/pages/AidMatchingDashboard";
+import VolunteerDashboard from "@/modules/aid/pages/VolunteerDashboard";
+import MatchingEngine from "@/modules/aid/pages/MatchingEngine";
+import AdminDashboard from "@/modules/admin/pages/AdminDashboard";
+import ClusterManagementPage from "@/modules/admin/pages/ClusterManagementPage";
+import AnalyticsDashboard from "@/modules/analytics/pages/AnalyticsDashboard";
+import ImageClassification from "@/modules/analytics/pages/ImageClassification";
+import PredictiveModeling from "@/modules/analytics/pages/PredictiveModeling";
+import Map from "@/modules/map/pages/Map";
+import UserProfile from "@/modules/user/pages/UserProfile";
+import IdentityVerification from "@/modules/user/pages/IdentityVerification";
+import ReputationDashboard from "@/modules/user/pages/ReputationDashboard";
+import Notifications from "@/modules/user/pages/Notifications";
+import NotificationPreferences from "@/modules/user/pages/NotificationPreferences";
 import NotFound from "@/pages/not-found";
 
 function Router() {

@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { isAuthenticated } from "../auth/replitAuth";
-import { storage } from "../storage";
+import { storage } from "../db/storage";
 import { StreamExporter } from "../utils/streamExport";
 import { logger } from "../utils/logger";
 

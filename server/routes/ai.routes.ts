@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { storage } from "../db/storage";
 import { isAuthenticated } from "../auth/replitAuth";
-import { AICrisisGuidanceService } from "../controllers/aiCrisisGuidance";
+import { AICrisisGuidanceService } from "../modules/ai/crisis-guidance.controller";
 import { aiRequestLimiter } from "../middleware/rateLimiting";
 
 // Placeholder for broadcast function - will be injected via index.ts

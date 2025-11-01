@@ -3,7 +3,7 @@ import { storage } from "../db/storage";
 import { isAuthenticated } from "../auth/replitAuth";
 import { insertAidOfferSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
-import { AIMatchingService } from "../controllers/aiMatching";
+import { AIMatchingService } from "../modules/ai/matching.controller";
 
 // Placeholder for broadcast function - will be injected via index.ts
 let broadcastToAll: (message: any) => void = () => {};

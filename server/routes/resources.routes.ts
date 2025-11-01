@@ -3,7 +3,7 @@ import { storage } from "../db/storage";
 import { isAuthenticated } from "../auth/replitAuth";
 import { insertResourceRequestSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
-import { AIMatchingService } from "../controllers/aiMatching";
+import { AIMatchingService } from "../modules/ai/matching.controller";
 import { resourceRequestLimiter } from "../middleware/rateLimiting";
 import { AuditLogger } from "../middleware/auditLog";
 

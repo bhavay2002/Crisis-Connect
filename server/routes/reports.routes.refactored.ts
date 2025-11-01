@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { isAuthenticated } from "../auth/replitAuth";
-import { reportController } from "../controllers/report.controller";
+import { reportController } from "../modules/reports/report.controller";
 import { asyncHandler } from "../middleware/errorHandler";
 import { 
   reportSubmissionLimiter, 
