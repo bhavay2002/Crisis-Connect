@@ -208,7 +208,7 @@ export default function ResourceRequests() {
   });
 
   const { data: user } = useQuery<any>({
-    queryKey: ["/api/user"],
+    queryKey: ["/api/auth/user"],
   });
 
   const canFulfill = user?.role && ["volunteer", "ngo", "admin"].includes(user.role);

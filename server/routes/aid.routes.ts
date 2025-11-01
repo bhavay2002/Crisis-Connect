@@ -24,6 +24,18 @@ export function registerAidRoutes(app: Express) {
     }
   });
 
+  // Get current user's aid offers (MUST come before /:id route)
+  app.get("/api/aid-offers/mine", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const offers = await storage.getAidOffersByUser(userId);
+      res.json(offers);
+    } catch (error) {
+      console.error("Error fetching user aid offers:", error);
+      res.status(500).json({ message: "Failed to fetch user aid offers" });
+    }
+  });
+
   // Get specific aid offer
   app.get("/api/aid-offers/:id", async (req, res) => {
     try {
