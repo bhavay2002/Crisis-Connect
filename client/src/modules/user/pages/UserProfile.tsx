@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import type { UserReputation } from "@shared/schema";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 
 export default function UserProfile() {
   const { user } = useAuth();
@@ -29,13 +30,15 @@ export default function UserProfile() {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">Please sign in to view your profile</p>
-          </CardContent>
-        </Card>
-      </div>
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <Card className="w-full max-w-md">
+            <CardContent className="pt-6">
+              <p className="text-center text-muted-foreground">Please sign in to view your profile</p>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
     );
   }
 
@@ -70,19 +73,20 @@ export default function UserProfile() {
   };
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">My Profile</h1>
-          <p className="text-muted-foreground">Manage your account and verification status</p>
+    <DashboardLayout>
+      <div className="container mx-auto p-4 max-w-4xl">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold">My Profile</h1>
+            <p className="text-muted-foreground">Manage your account and verification status</p>
+          </div>
+          <Link href="/select-role">
+            <Button variant="outline" size="sm" data-testid="button-change-role">
+              <Settings className="h-4 w-4 mr-2" />
+              Change Role
+            </Button>
+          </Link>
         </div>
-        <Link href="/select-role">
-          <Button variant="outline" size="sm" data-testid="button-change-role">
-            <Settings className="h-4 w-4 mr-2" />
-            Change Role
-          </Button>
-        </Link>
-      </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* User Info Card */}
@@ -275,6 +279,7 @@ export default function UserProfile() {
           </CardContent>
         </Card>
       </div>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }

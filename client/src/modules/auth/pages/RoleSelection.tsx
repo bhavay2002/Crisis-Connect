@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Shield, Users, Building2, UserCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 
 const roles = [
   {
@@ -89,7 +90,8 @@ export default function RoleSelection() {
   });
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background to-muted">
+    <DashboardLayout>
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background to-muted">
       <Card className="w-full max-w-2xl">
         <CardHeader>
           <CardTitle className="text-2xl">Select Your Role</CardTitle>
@@ -148,5 +150,6 @@ export default function RoleSelection() {
         </CardContent>
       </Card>
     </div>
+    </DashboardLayout>
   );
 }

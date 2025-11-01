@@ -16,6 +16,7 @@ import {
   Trophy
 } from "lucide-react";
 import type { UserReputation } from "@shared/schema";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 
 export default function ReputationDashboard() {
   const { user } = useAuth();
@@ -25,38 +26,6 @@ export default function ReputationDashboard() {
     enabled: !!user,
   });
 
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">Please sign in to view your reputation</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Clock className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (!reputation) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">No reputation data available</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   const getTrustLevel = (score: number) => {
     if (score >= 80) return { label: "Excellent", color: "text-green-600", variant: "default" as const };
     if (score >= 60) return { label: "Good", color: "text-blue-600", variant: "secondary" as const };
@@ -64,6 +33,46 @@ export default function ReputationDashboard() {
     return { label: "Building", color: "text-orange-600", variant: "outline" as const };
   };
 
+  return (
+    <DashboardLayout>
+      <div className="container mx-auto p-4 max-w-6xl">
+        {!user ? (
+          <Card className="w-full max-w-md mx-auto">
+            <CardContent className="pt-6">
+              <p className="text-center text-muted-foreground">Please sign in to view your reputation</p>
+            </CardContent>
+          </Card>
+        ) : isLoading ? (
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Clock className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : !reputation ? (
+          <Card className="w-full max-w-md mx-auto">
+            <CardContent className="pt-6">
+              <p className="text-center text-muted-foreground">No reputation data available</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            <div className="mb-6">
+              <h1 className="text-3xl font-bold flex items-center gap-2">
+                <Award className="h-8 w-8" />
+                Reputation Dashboard
+              </h1>
+              <p className="text-muted-foreground mt-2">
+                Track your contributions and build trust in the community
+              </p>
+            </div>
+
+            <ReputationContent user={user} reputation={reputation} getTrustLevel={getTrustLevel} />
+          </>
+        )}
+      </div>
+    </DashboardLayout>
+  );
+}
+
+function ReputationContent({ user, reputation, getTrustLevel }: { user: any, reputation: UserReputation, getTrustLevel: (score: number) => any }) {
   const trustLevel = getTrustLevel(reputation.trustScore);
 
   const achievements = [
@@ -115,15 +124,8 @@ export default function ReputationDashboard() {
   ];
 
   return (
-    <div className="container mx-auto p-4 max-w-6xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Award className="h-8 w-8" />
-          Reputation Dashboard
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Track your contributions and build trust in the community
-        </p>
+    <>
+      <div className="mb-6" style={{ display: 'none' }}>
       </div>
 
       {/* Trust Score Card */}
@@ -338,6 +340,6 @@ export default function ReputationDashboard() {
           </ul>
         </CardContent>
       </Card>
-    </div>
+    </>
   );
 }

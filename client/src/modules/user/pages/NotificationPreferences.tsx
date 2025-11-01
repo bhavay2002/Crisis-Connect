@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Bell, Shield, AlertTriangle, Package, Users } from "lucide-react";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 
 const preferencesSchema = z.object({
   disasterNearby: z.boolean(),
@@ -160,7 +161,8 @@ export default function NotificationPreferences() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-4xl">
+    <DashboardLayout>
+      <div className="container mx-auto py-8 px-4 max-w-4xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground dark:text-foreground mb-2">Notification Preferences</h1>
         <p className="text-muted-foreground dark:text-muted-foreground">
@@ -236,5 +238,6 @@ export default function NotificationPreferences() {
         </form>
       </Form>
     </div>
+    </DashboardLayout>
   );
 }

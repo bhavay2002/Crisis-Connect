@@ -17,6 +17,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 
 export default function IdentityVerification() {
   const { user } = useAuth();
@@ -164,7 +165,8 @@ export default function IdentityVerification() {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
+    <DashboardLayout>
+      <div className="container mx-auto p-4 max-w-4xl">
       <div className="mb-6">
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <Shield className="h-8 w-8" />
@@ -387,5 +389,6 @@ export default function IdentityVerification() {
         )}
       </div>
     </div>
+    </DashboardLayout>
   );
 }

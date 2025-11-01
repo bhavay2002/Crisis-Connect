@@ -12,6 +12,7 @@ import { formatDistanceToNow, format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { Progress } from "@/components/ui/progress";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 
 const resourceIcons = {
   food: Package,
@@ -240,111 +241,113 @@ export default function ResourceRequests() {
   };
 
   return (
-    <div className="container mx-auto p-4 md:p-6 max-w-7xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Resource Requests</h1>
-          <p className="text-muted-foreground">
-            View and manage resource requests from people in need
-          </p>
+    <DashboardLayout>
+      <div className="container mx-auto p-4 md:p-6 max-w-7xl">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight mb-2">Resource Requests</h1>
+            <p className="text-muted-foreground">
+              View and manage resource requests from people in need
+            </p>
+          </div>
+          <Button onClick={() => navigate("/submit-resource-request")} data-testid="button-submit-request">
+            Submit Request
+          </Button>
         </div>
-        <Button onClick={() => navigate("/submit-resource-request")} data-testid="button-submit-request">
-          Submit Request
-        </Button>
+
+        <Tabs defaultValue="all" className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="all" data-testid="tab-all-requests">
+              All Requests ({allRequests.length})
+            </TabsTrigger>
+            <TabsTrigger value="mine" data-testid="tab-my-requests">
+              My Requests ({myRequests.length})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="all" className="space-y-4">
+            {isLoadingAll ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i}>
+                    <CardHeader>
+                      <Skeleton className="h-6 w-3/4" />
+                      <Skeleton className="h-4 w-full" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-20 w-full" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : allRequests.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Package className="h-12 w-12 text-muted-foreground mb-4" />
+                  <p className="text-lg font-medium mb-2">No resource requests yet</p>
+                  <p className="text-muted-foreground text-center mb-4">
+                    Be the first to submit a resource request
+                  </p>
+                  <Button onClick={() => navigate("/submit-resource-request")} data-testid="button-submit-first-request">
+                    Submit Request
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {allRequests.map((request) => (
+                  <ResourceRequestCard
+                    key={request.id}
+                    request={request}
+                    onFulfill={canFulfill ? handleFulfill : undefined}
+                    isFulfilling={fulfillMutation.isPending}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="mine" className="space-y-4">
+            {isLoadingMine ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i}>
+                    <CardHeader>
+                      <Skeleton className="h-6 w-3/4" />
+                      <Skeleton className="h-4 w-full" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-20 w-full" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : myRequests.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Package className="h-12 w-12 text-muted-foreground mb-4" />
+                  <p className="text-lg font-medium mb-2">No resource requests yet</p>
+                  <p className="text-muted-foreground text-center mb-4">
+                    You haven't submitted any resource requests
+                  </p>
+                  <Button onClick={() => navigate("/submit-resource-request")} data-testid="button-submit-my-first-request">
+                    Submit Request
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {myRequests.map((request) => (
+                  <ResourceRequestCard
+                    key={request.id}
+                    request={request}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
-
-      <Tabs defaultValue="all" className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="all" data-testid="tab-all-requests">
-            All Requests ({allRequests.length})
-          </TabsTrigger>
-          <TabsTrigger value="mine" data-testid="tab-my-requests">
-            My Requests ({myRequests.length})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="all" className="space-y-4">
-          {isLoadingAll ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <Card key={i}>
-                  <CardHeader>
-                    <Skeleton className="h-6 w-3/4" />
-                    <Skeleton className="h-4 w-full" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-20 w-full" />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : allRequests.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Package className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-lg font-medium mb-2">No resource requests yet</p>
-                <p className="text-muted-foreground text-center mb-4">
-                  Be the first to submit a resource request
-                </p>
-                <Button onClick={() => navigate("/submit-resource-request")} data-testid="button-submit-first-request">
-                  Submit Request
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {allRequests.map((request) => (
-                <ResourceRequestCard
-                  key={request.id}
-                  request={request}
-                  onFulfill={canFulfill ? handleFulfill : undefined}
-                  isFulfilling={fulfillMutation.isPending}
-                />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="mine" className="space-y-4">
-          {isLoadingMine ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <Card key={i}>
-                  <CardHeader>
-                    <Skeleton className="h-6 w-3/4" />
-                    <Skeleton className="h-4 w-full" />
-                  </CardHeader>
-                  <CardContent>
-                    <Skeleton className="h-20 w-full" />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : myRequests.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Package className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-lg font-medium mb-2">No resource requests yet</p>
-                <p className="text-muted-foreground text-center mb-4">
-                  You haven't submitted any resource requests
-                </p>
-                <Button onClick={() => navigate("/submit-resource-request")} data-testid="button-submit-my-first-request">
-                  Submit Request
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {myRequests.map((request) => (
-                <ResourceRequestCard
-                  key={request.id}
-                  request={request}
-                />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-    </div>
+    </DashboardLayout>
   );
 }

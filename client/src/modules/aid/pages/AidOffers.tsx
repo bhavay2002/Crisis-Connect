@@ -11,6 +11,7 @@ import type { AidOffer } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 
 const resourceIcons = {
   food: Package,
@@ -152,7 +153,8 @@ export default function AidOffers() {
   };
 
   return (
-    <div className="container mx-auto p-4 md:p-6">
+    <DashboardLayout>
+      <div className="container mx-auto p-4 md:p-6">
       <div className="flex items-start justify-between mb-6">
         <div>
           <div className="flex items-center gap-3 mb-2">
@@ -261,5 +263,6 @@ export default function AidOffers() {
         )}
       </Tabs>
     </div>
+    </DashboardLayout>
   );
 }
