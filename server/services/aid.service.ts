@@ -1,4 +1,4 @@
-import { storage } from "../db/storage";
+import { aidRepository } from "../repositories/aid.repository";
 import type { AidOffer, InsertAidOffer } from "@shared/schema";
 import type { PaginationParams } from "@shared/pagination";
 import type { AidFilter } from "@shared/filtering";
@@ -18,7 +18,7 @@ export class AidService {
   async getAllAidOffers(params?: AidQueryParams): Promise<AidQueryResult> {
     logger.debug("Fetching all aid offers", { params });
     
-    let offers = await storage.getAllAidOffers();
+    let offers = await aidRepository.findAll();
     
     // Apply filters
     if (params?.filter) {
@@ -69,7 +69,7 @@ export class AidService {
   }
 
   async getAidOfferById(id: string): Promise<AidOffer> {
-    const offer = await storage.getAidOffer(id);
+    const offer = await aidRepository.findById(id);
     if (!offer) {
       throw new NotFoundError("Aid offer");
     }
@@ -78,12 +78,12 @@ export class AidService {
 
   async getAidOffersByUser(userId: string): Promise<AidOffer[]> {
     logger.debug("Fetching aid offers for user", { userId });
-    return storage.getAidOffersByUser(userId);
+    return aidRepository.findByUserId(userId);
   }
 
   async getAvailableAidOffers(): Promise<AidOffer[]> {
     logger.debug("Fetching available aid offers");
-    return storage.getAvailableAidOffers();
+    return aidRepository.findAvailable();
   }
 
   async createAidOffer(data: InsertAidOffer): Promise<AidOffer> {
@@ -92,7 +92,7 @@ export class AidService {
       quantity: data.quantity,
     });
 
-    const offer = await storage.createAidOffer(data);
+    const offer = await aidRepository.create(data);
 
     logger.info("Aid offer created successfully", { offerId: offer.id });
     return offer;
@@ -104,7 +104,7 @@ export class AidService {
   ): Promise<AidOffer> {
     logger.info("Updating aid offer status", { offerId: id, status });
 
-    const offer = await storage.updateAidOfferStatus(id, status);
+    const offer = await aidRepository.updateStatus(id, status);
     if (!offer) {
       throw new NotFoundError("Aid offer");
     }
@@ -115,7 +115,7 @@ export class AidService {
   async matchAidOfferToRequest(offerId: string, requestId: string): Promise<AidOffer> {
     logger.info("Matching aid offer to request", { offerId, requestId });
 
-    const offer = await storage.matchAidOfferToRequest(offerId, requestId);
+    const offer = await aidRepository.matchToRequest(offerId, requestId);
     if (!offer) {
       throw new NotFoundError("Aid offer");
     }
@@ -126,7 +126,7 @@ export class AidService {
   async markAidOfferDelivered(id: string): Promise<AidOffer> {
     logger.info("Marking aid offer as delivered", { offerId: id });
 
-    const offer = await storage.markAidOfferDelivered(id);
+    const offer = await aidRepository.markDelivered(id);
     if (!offer) {
       throw new NotFoundError("Aid offer");
     }
@@ -137,7 +137,7 @@ export class AidService {
   async cancelAidOffer(id: string): Promise<AidOffer> {
     logger.info("Cancelling aid offer", { offerId: id });
 
-    const offer = await storage.updateAidOfferStatus(id, "cancelled");
+    const offer = await aidRepository.updateStatus(id, "cancelled");
     if (!offer) {
       throw new NotFoundError("Aid offer");
     }

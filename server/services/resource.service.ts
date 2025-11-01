@@ -1,4 +1,4 @@
-import { storage } from "../db/storage";
+import { resourceRepository } from "../repositories/resource.repository";
 import type { ResourceRequest, InsertResourceRequest } from "@shared/schema";
 import type { PaginationParams } from "@shared/pagination";
 import type { ResourceFilter } from "@shared/filtering";
@@ -18,7 +18,7 @@ export class ResourceService {
   async getAllResourceRequests(params?: ResourceQueryParams): Promise<ResourceQueryResult> {
     logger.debug("Fetching all resource requests", { params });
     
-    let requests = await storage.getAllResourceRequests();
+    let requests = await resourceRepository.findAll();
     
     // Apply filters
     if (params?.filter) {
@@ -69,7 +69,7 @@ export class ResourceService {
   }
 
   async getResourceRequestById(id: string): Promise<ResourceRequest> {
-    const request = await storage.getResourceRequest(id);
+    const request = await resourceRepository.findById(id);
     if (!request) {
       throw new NotFoundError("Resource request");
     }
@@ -78,12 +78,12 @@ export class ResourceService {
 
   async getResourceRequestsByUser(userId: string): Promise<ResourceRequest[]> {
     logger.debug("Fetching resource requests for user", { userId });
-    return storage.getResourceRequestsByUser(userId);
+    return resourceRepository.findByUserId(userId);
   }
 
   async getPendingResourceRequests(): Promise<ResourceRequest[]> {
     logger.debug("Fetching pending resource requests");
-    const allRequests = await storage.getAllResourceRequests();
+    const allRequests = await resourceRepository.findAll();
     return allRequests.filter(r => r.status === "pending");
   }
 
@@ -94,7 +94,7 @@ export class ResourceService {
       urgency: data.urgency,
     });
 
-    const request = await storage.createResourceRequest(data);
+    const request = await resourceRepository.create(data);
 
     logger.info("Resource request created successfully", { requestId: request.id });
     return request;
@@ -106,7 +106,7 @@ export class ResourceService {
   ): Promise<ResourceRequest> {
     logger.info("Updating resource request status", { requestId: id, status });
 
-    const request = await storage.updateResourceRequestStatus(id, status);
+    const request = await resourceRepository.updateStatus(id, status);
     if (!request) {
       throw new NotFoundError("Resource request");
     }
@@ -117,7 +117,7 @@ export class ResourceService {
   async fulfillResourceRequest(id: string, userId: string): Promise<ResourceRequest> {
     logger.info("Fulfilling resource request", { requestId: id, userId });
 
-    const request = await storage.fulfillResourceRequest(id, userId);
+    const request = await resourceRepository.fulfill(id, userId);
     if (!request) {
       throw new NotFoundError("Resource request");
     }
@@ -128,7 +128,7 @@ export class ResourceService {
   async cancelResourceRequest(id: string): Promise<ResourceRequest> {
     logger.info("Cancelling resource request", { requestId: id });
 
-    const request = await storage.updateResourceRequestStatus(id, "cancelled");
+    const request = await resourceRepository.updateStatus(id, "cancelled");
     if (!request) {
       throw new NotFoundError("Resource request");
     }

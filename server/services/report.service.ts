@@ -1,4 +1,4 @@
-import { storage } from "../db/storage";
+import { reportRepository } from "../repositories/report.repository";
 import type { DisasterReport, InsertDisasterReport, InsertVerification } from "@shared/schema";
 import type { PaginationParams } from "@shared/pagination";
 import type { ReportFilter } from "@shared/filtering";
@@ -37,7 +37,7 @@ export class ReportService {
   async getAllReports(params?: ReportQueryParams): Promise<ReportQueryResult> {
     logger.debug("Fetching all disaster reports", { params });
     
-    let reports = await storage.getAllDisasterReports();
+    let reports = await reportRepository.findAll();
     
     // Apply filters if provided
     if (params?.filter) {
@@ -96,7 +96,7 @@ export class ReportService {
   }
 
   async getReportById(id: string): Promise<DisasterReport> {
-    const report = await storage.getDisasterReport(id);
+    const report = await reportRepository.findById(id);
     if (!report) {
       throw new NotFoundError("Report");
     }
@@ -105,22 +105,22 @@ export class ReportService {
 
   async getReportsByUser(userId: string): Promise<DisasterReport[]> {
     logger.debug("Fetching reports for user", { userId });
-    return storage.getDisasterReportsByUser(userId);
+    return reportRepository.findByUserId(userId);
   }
 
   async getReportsByStatus(status: "reported" | "verified" | "responding" | "resolved"): Promise<DisasterReport[]> {
     logger.debug("Fetching reports by status", { status });
-    return storage.getReportsByStatus(status);
+    return reportRepository.findByStatus(status);
   }
 
   async getFlaggedReports(): Promise<DisasterReport[]> {
     logger.debug("Fetching flagged reports");
-    return storage.getFlaggedReports();
+    return reportRepository.findFlagged();
   }
 
   async getPrioritizedReports(): Promise<DisasterReport[]> {
     logger.debug("Fetching prioritized reports");
-    return storage.getPrioritizedReports();
+    return reportRepository.findPrioritized();
   }
 
   async createReport(data: InsertDisasterReport): Promise<ReportWithDuplicateInfo> {
@@ -130,7 +130,7 @@ export class ReportService {
       severity: data.severity 
     });
 
-    const recentReports = await storage.getRecentReports(200);
+    const recentReports = await reportRepository.getRecentReports(200);
     
     const aiValidation = await this.aiService.validateReport(
       {
@@ -151,7 +151,7 @@ export class ReportService {
       aiValidationNotes: aiValidation.notes,
     };
 
-    const report = await storage.createDisasterReport(reportWithAI);
+    const report = await reportRepository.create(reportWithAI);
     
     const duplicateCheck = await this.detectAndLinkDuplicates(report, recentReports);
     
@@ -172,7 +172,7 @@ export class ReportService {
   ): Promise<DisasterReport> {
     logger.info("Updating report status", { reportId: id, status });
     
-    const report = await storage.updateDisasterReportStatus(id, status);
+    const report = await reportRepository.updateStatus(id, status);
     if (!report) {
       throw new NotFoundError("Report");
     }
@@ -183,21 +183,21 @@ export class ReportService {
   async verifyReport(userId: string, reportId: string): Promise<DisasterReport> {
     logger.info("Verifying report", { userId, reportId });
     
-    const existingVerification = await storage.getUserVerificationForReport(userId, reportId);
+    const existingVerification = await reportRepository.findUserVerificationForReport(userId, reportId);
     if (existingVerification) {
       throw new ConflictError("You have already verified this report");
     }
 
-    const report = await storage.getDisasterReport(reportId);
+    const report = await reportRepository.findById(reportId);
     if (!report) {
       throw new NotFoundError("Report");
     }
 
     const verification: InsertVerification = { userId, reportId };
-    await storage.createVerification(verification);
-    await storage.incrementReportVerificationCount(reportId);
+    await reportRepository.createVerification(verification);
+    await reportRepository.incrementVerificationCount(reportId);
 
-    const updatedReport = await storage.getDisasterReport(reportId);
+    const updatedReport = await reportRepository.findById(reportId);
     if (!updatedReport) {
       throw new NotFoundError("Report");
     }
@@ -209,7 +209,7 @@ export class ReportService {
   async confirmReport(reportId: string, userId: string): Promise<DisasterReport> {
     logger.info("Confirming report", { reportId, userId });
     
-    const report = await storage.confirmReport(reportId, userId);
+    const report = await reportRepository.confirm(reportId, userId);
     if (!report) {
       throw new NotFoundError("Report");
     }
@@ -220,7 +220,7 @@ export class ReportService {
   async unconfirmReport(reportId: string): Promise<DisasterReport> {
     logger.info("Unconfirming report", { reportId });
     
-    const report = await storage.unconfirmReport(reportId);
+    const report = await reportRepository.unconfirm(reportId);
     if (!report) {
       throw new NotFoundError("Report");
     }
@@ -236,7 +236,7 @@ export class ReportService {
   ): Promise<DisasterReport> {
     logger.info("Flagging report", { reportId, flagType, userId });
     
-    const report = await storage.flagReport(reportId, flagType, userId, adminNotes);
+    const report = await reportRepository.flag(reportId, flagType, userId, adminNotes);
     if (!report) {
       throw new NotFoundError("Report");
     }
@@ -247,7 +247,7 @@ export class ReportService {
   async unflagReport(reportId: string): Promise<DisasterReport> {
     logger.info("Unflagging report", { reportId });
     
-    const report = await storage.unflagReport(reportId);
+    const report = await reportRepository.unflag(reportId);
     if (!report) {
       throw new NotFoundError("Report");
     }
@@ -258,7 +258,7 @@ export class ReportService {
   async assignReport(reportId: string, volunteerId: string): Promise<DisasterReport> {
     logger.info("Assigning report to volunteer", { reportId, volunteerId });
     
-    const report = await storage.assignReportToVolunteer(reportId, volunteerId);
+    const report = await reportRepository.assignToVolunteer(reportId, volunteerId);
     if (!report) {
       throw new NotFoundError("Report");
     }
@@ -269,7 +269,7 @@ export class ReportService {
   async unassignReport(reportId: string): Promise<DisasterReport> {
     logger.info("Unassigning report", { reportId });
     
-    const report = await storage.unassignReport(reportId);
+    const report = await reportRepository.unassign(reportId);
     if (!report) {
       throw new NotFoundError("Report");
     }
@@ -280,7 +280,7 @@ export class ReportService {
   async updatePriority(reportId: string, priorityScore: number): Promise<DisasterReport> {
     logger.info("Updating report priority", { reportId, priorityScore });
     
-    const report = await storage.updateReportPriority(reportId, priorityScore);
+    const report = await reportRepository.updatePriority(reportId, priorityScore);
     if (!report) {
       throw new NotFoundError("Report");
     }
@@ -291,7 +291,7 @@ export class ReportService {
   async addAdminNotes(reportId: string, notes: string): Promise<DisasterReport> {
     logger.info("Adding admin notes to report", { reportId });
     
-    const report = await storage.addAdminNotes(reportId, notes);
+    const report = await reportRepository.addAdminNotes(reportId, notes);
     if (!report) {
       throw new NotFoundError("Report");
     }
@@ -310,16 +310,16 @@ export class ReportService {
       const similarIds = similarReports.slice(0, 5).map(s => s.reportId);
       
       if (similarIds.length > 0) {
-        await storage.updateSimilarReports(report.id, similarIds);
+        await reportRepository.updateSimilarReports(report.id, similarIds);
         
         for (const similarId of similarIds) {
-          const existingReport = await storage.getDisasterReport(similarId);
+          const existingReport = await reportRepository.findById(similarId);
           if (existingReport) {
             const updatedSimilarIds = Array.from(new Set([
               ...(existingReport.similarReportIds || []),
               report.id
             ]));
-            await storage.updateSimilarReports(similarId, updatedSimilarIds);
+            await reportRepository.updateSimilarReports(similarId, updatedSimilarIds);
           }
         }
 

@@ -31,8 +31,14 @@ server/
 │   ├── logger.ts       # Structured logging
 │   └── clustering.ts   # Domain utilities
 ├── services/           # Business logic layer
+├── repositories/       # Data access layer (NEW)
+│   ├── report.repository.ts    # Report data access
+│   ├── resource.repository.ts  # Resource data access
+│   └── aid.repository.ts       # Aid data access
 ├── controllers/        # Route handlers
-└── routes/             # API route definitions
+├── routes/             # API route definitions
+└── db/                 # Database configuration
+    └── storage.ts      # Storage implementation
 
 shared/
 ├── schema.ts           # Database schema & types
@@ -41,12 +47,13 @@ shared/
 
 ### Layer Responsibilities
 
-**Routes** → **Controllers** → **Services** → **Storage/Database**
+**Routes** → **Controllers** → **Services** → **Repositories** → **Storage/Database**
 
 - **Routes**: Define HTTP endpoints, minimal logic
 - **Controllers**: Handle HTTP concerns (request/response)
 - **Services**: Contain business logic, orchestrate operations
-- **Storage**: Data access layer, database operations
+- **Repositories**: Data access abstraction, decouple services from storage (NEW)
+- **Storage**: Direct database operations via ORM
 
 ### Middleware Order
 
@@ -81,6 +88,62 @@ if (isDevelopment) {
 ```
 
 **Rationale**: The 404 and error handlers MUST be registered before the Vite/static middleware to ensure unknown API routes return JSON errors instead of the SPA HTML. The frontend catch-all should always be last to handle all non-API routes.
+
+---
+
+## Repository Pattern
+
+### Purpose
+
+The repository layer decouples business logic from data access, providing:
+- **Abstraction**: Services don't need to know about database implementation
+- **Testability**: Easy to mock repositories for unit testing
+- **Maintainability**: Database changes are isolated to repositories
+- **Consistency**: Standardized data access patterns across domains
+
+### Repository Structure
+
+Each domain has its own repository with consistent method naming:
+
+```typescript
+// server/repositories/report.repository.ts
+export class ReportRepository {
+  async findById(id: string): Promise<Report | undefined> { }
+  async findAll(): Promise<Report[]> { }
+  async findByUserId(userId: string): Promise<Report[]> { }
+  async create(data: InsertReport): Promise<Report> { }
+  async updateStatus(id: string, status: string): Promise<Report | undefined> { }
+  // ... other domain-specific methods
+}
+```
+
+### Using Repositories in Services
+
+Services should use repositories instead of direct storage access:
+
+```typescript
+// CORRECT: Using repository
+import { reportRepository } from "../repositories/report.repository";
+
+export class ReportService {
+  async getReportById(id: string): Promise<DisasterReport> {
+    const report = await reportRepository.findById(id);
+    if (!report) throw new NotFoundError("Report");
+    return report;
+  }
+}
+
+// AVOID: Direct storage access (breaks separation of concerns)
+import { storage } from "../db/storage";
+const report = await storage.getDisasterReport(id);
+```
+
+### Benefits
+
+1. **Single Responsibility**: Repositories only handle data access
+2. **Easy Testing**: Mock repositories without touching database
+3. **Database Migration**: Change ORM or database without touching services
+4. **Consistent Patterns**: All data access follows the same conventions
 
 ---
 

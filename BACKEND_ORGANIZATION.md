@@ -11,6 +11,11 @@ server/
 │   ├── resource.service.ts     # Resource request operations
 │   ├── aid.service.ts          # Aid offer operations
 │   └── [feature].service.ts    # Other feature services
+├── repositories/      # Data access layer (NEW)
+│   ├── report.repository.ts    # Report data access
+│   ├── resource.repository.ts  # Resource data access
+│   ├── aid.repository.ts       # Aid data access
+│   └── [feature].repository.ts # Other feature repositories
 ├── controllers/       # HTTP handling layer
 │   ├── report.controller.ts    # Report HTTP endpoints
 │   ├── resource.controller.ts  # Resource HTTP endpoints
@@ -24,7 +29,7 @@ server/
 ├── middleware/        # Shared middleware
 ├── utils/             # Shared utilities
 └── db/                # Database layer
-    └── storage.ts     # Data access (to be split into repositories)
+    └── storage.ts     # Direct database operations via ORM
 ```
 
 ## Shared Utilities
@@ -166,17 +171,52 @@ if (report.version !== providedVersion) {
 
 Each feature follows the same pattern:
 
-### 1. Service Layer
+### 1. Repository Layer (NEW)
+
+**Responsibilities:**
+- Data access abstraction
+- Decouple services from storage implementation
+- Provide consistent data access interface
+- Enable easy testing with mocks
+
+**Example (`server/repositories/resource.repository.ts`):**
+```typescript
+export class ResourceRepository {
+  async findById(id: string): Promise<ResourceRequest | undefined> {
+    logger.debug("Finding resource request by ID", { id });
+    return storage.getResourceRequest(id);
+  }
+
+  async findAll(): Promise<ResourceRequest[]> {
+    logger.debug("Finding all resource requests");
+    return storage.getAllResourceRequests();
+  }
+
+  async create(request: InsertResourceRequest): Promise<ResourceRequest> {
+    logger.debug("Creating new resource request", { 
+      resourceType: request.resourceType, 
+      urgency: request.urgency 
+    });
+    return storage.createResourceRequest(request);
+  }
+}
+
+export const resourceRepository = new ResourceRepository();
+```
+
+### 2. Service Layer
 
 **Responsibilities:**
 - Business logic
 - Data validation
-- Orchestration of storage operations
+- Orchestration via repositories (NOT direct storage)
 - Logging with context
 - Throwing domain errors
 
 **Example (`server/services/resource.service.ts`):**
 ```typescript
+import { resourceRepository } from "../repositories/resource.repository";
+
 export class ResourceService {
   async createResourceRequest(data: InsertResourceRequest): Promise<ResourceRequest> {
     logger.info("Creating new resource request", {
@@ -184,14 +224,16 @@ export class ResourceService {
       resourceType: data.resourceType,
     });
 
-    const request = await storage.createResourceRequest(data);
+    // Use repository instead of storage
+    const request = await resourceRepository.create(data);
 
     logger.info("Resource request created", { requestId: request.id });
     return request;
   }
 
   async getResourceRequestById(id: string): Promise<ResourceRequest> {
-    const request = await storage.getResourceRequest(id);
+    // Use repository instead of storage
+    const request = await resourceRepository.findById(id);
     if (!request) {
       throw new NotFoundError("Resource request");
     }
@@ -202,7 +244,7 @@ export class ResourceService {
 export const resourceService = new ResourceService();
 ```
 
-### 2. Controller Layer
+### 3. Controller Layer
 
 **Responsibilities:**
 - HTTP request/response handling
@@ -246,7 +288,7 @@ export class ResourceController {
 export const resourceController = new ResourceController();
 ```
 
-### 3. Routes Layer
+### 4. Routes Layer
 
 **Responsibilities:**
 - Define HTTP endpoints
@@ -312,10 +354,19 @@ Controller (validation, HTTP concerns)
     ↓
 Service (business logic)
     ↓
-Storage (data access)
+Repository (data access abstraction) ← NEW LAYER
+    ↓
+Storage (ORM operations)
     ↓
 Database
 ```
+
+### Benefits of Repository Layer
+
+1. **Decoupling**: Services don't depend on storage implementation
+2. **Testability**: Easy to mock repositories in service tests
+3. **Flexibility**: Can swap storage implementation without touching services
+4. **Consistency**: Standardized data access patterns across all domains
 
 ## Pagination & Filtering Flow
 
@@ -437,7 +488,9 @@ Error Response (version mismatch):
 
 When creating a new feature module:
 
+- [ ] Create repository class in `server/repositories/[feature].repository.ts` (NEW)
 - [ ] Create service class in `server/services/[feature].service.ts`
+- [ ] Update service to use repository instead of direct storage (NEW)
 - [ ] Create controller class in `server/controllers/[feature].controller.ts`
 - [ ] Create routes in `server/routes/[feature].routes.ts`
 - [ ] Add filter schema to `shared/filtering.ts` if needed
@@ -540,7 +593,9 @@ POST /api/aid/aid123/deliver
 ## Summary
 
 The backend is now organized by features with:
-- ✅ Clean separation of concerns (routes → controllers → services → storage)
+- ✅ Clean separation of concerns (routes → controllers → services → **repositories** → storage)
+- ✅ Repository layer for data access abstraction (NEW)
+- ✅ Services decoupled from storage implementation (NEW)
 - ✅ Shared pagination utilities for consistent data querying
 - ✅ Comprehensive filtering support for all major entities
 - ✅ Change tracking with ETags and optimistic locking
