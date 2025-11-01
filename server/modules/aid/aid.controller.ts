@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { aidService } from "../services/aid.service";
+import { aidService } from "./aid.service";
 import { insertAidOfferSchema } from "@shared/schema";
 import { validatePagination, createPaginatedResponse } from "@shared/pagination";
 import { aidFilterSchema } from "@shared/filtering";

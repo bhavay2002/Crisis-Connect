@@ -10,7 +10,7 @@ import {
   authLimiter
 } from "../middleware/rateLimiting";
 import { AuditLogger } from "../middleware/auditLog";
-import { extractPaginationParams, getPaginationOffsets, createPaginatedResponse } from "../utils/pagination";
+import { extractPaginationParams, getPaginationOffsets, createPaginatedResponse } from "../middleware/pagination";
 import { cache, CacheKeys, CacheTTL } from "../utils/cache";
 import { logger } from "../utils/logger";
 

@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Upload, AlertCircle, CheckCircle2, Loader2, Camera } from 'lucide-react';
-import DashboardLayout from '@/components/DashboardLayout';
+import DashboardLayout from '@/components/layout/DashboardLayout';
 
 const DISASTER_TYPE_LABELS: Record<string, string> = {
   fire: 'Fire',

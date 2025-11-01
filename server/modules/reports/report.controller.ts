@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { reportService } from "../services/report.service";
+import { reportService } from "./report.service";
 import { insertDisasterReportSchema } from "@shared/schema";
 import { validatePagination, createPaginatedResponse } from "@shared/pagination";
 import { reportFilterSchema } from "@shared/filtering";

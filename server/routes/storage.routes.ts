@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { isAuthenticated } from "../auth/replitAuth";
-import { ObjectStorageService, ObjectNotFoundError } from "../utils/objectStorage";
+import { ObjectStorageService, ObjectNotFoundError } from "../shared/storage/object-storage";
 
 export function registerStorageRoutes(app: Express) {
   // Get object from storage

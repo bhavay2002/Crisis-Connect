@@ -38,7 +38,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc, and, sql } from "drizzle-orm";
-import { encryptMessage, decryptMessage, isEncryptionEnabled } from "../utils/encryption";
+import { encryptMessage, decryptMessage, isEncryptionEnabled } from "../shared/security/encryption";
 import { logger } from "../utils/logger";
 
 export interface IStorage {

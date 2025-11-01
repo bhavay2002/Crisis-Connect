@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { resourceService } from "../services/resource.service";
+import { resourceService } from "./resource.service";
 import { insertResourceRequestSchema } from "@shared/schema";
 import { validatePagination, createPaginatedResponse } from "@shared/pagination";
 import { resourceFilterSchema } from "@shared/filtering";

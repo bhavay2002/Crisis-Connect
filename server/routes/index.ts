@@ -43,7 +43,7 @@ import { registerCacheRoutes } from "./cache.routes";
 import { registerExportRoutes } from "./export.routes";
 import { wsRateLimiter } from "../middleware/wsRateLimiting";
 import { config } from "../config";
-import { encryptWebSocketMessage, shouldEncryptMessage, type SecureWebSocketMessage } from "../utils/wsEncryption";
+import { encryptWebSocketMessage, shouldEncryptMessage, type SecureWebSocketMessage } from "../shared/websocket/ws-encryption";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication middleware

@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Brain, CloudRain, Activity, AlertTriangle, MapPin } from 'lucide-react';
-import DashboardLayout from '@/components/DashboardLayout';
+import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useToast } from '@/hooks/use-toast';
 import { queryClient, apiRequest } from '@/lib/queryClient';
 import 'leaflet/dist/leaflet.css';
@@ -114,7 +114,7 @@ export default function PredictiveModeling() {
     generateMutation.mutate(generatingLocation);
   };
 
-  const canGeneratePredictions = user && ['ngo', 'admin', 'government'].includes((user as any).role || '');
+  const canGeneratePredictions = Boolean(user && ['ngo', 'admin', 'government'].includes((user as any).role || ''));
 
   const defaultCenter: [number, number] = [20.5937, 78.9629]; // India center
   const defaultZoom = 5;
@@ -132,7 +132,7 @@ export default function PredictiveModeling() {
           </p>
         </div>
 
-        {canGeneratePredictions && (
+        {canGeneratePredictions ? (
           <Card className="mb-6">
             <CardHeader>
               <CardTitle>Generate New Predictions</CardTitle>
@@ -206,7 +206,7 @@ export default function PredictiveModeling() {
               </div>
             </CardContent>
           </Card>
-        )}
+        ) : null}
 
         <Tabs defaultValue="map" className="space-y-4">
           <TabsList>

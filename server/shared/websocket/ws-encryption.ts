@@ -1,5 +1,5 @@
-import { logger } from "./logger";
-import { config } from "../config";
+import { logger } from "../../utils/logger";
+import { config } from "../../config";
 import { webcrypto } from "crypto";
 
 export interface EncryptedMessage {

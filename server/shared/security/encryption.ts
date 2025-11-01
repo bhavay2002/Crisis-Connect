@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
-import { logger } from "./logger";
+import { logger } from "../../utils/logger";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
