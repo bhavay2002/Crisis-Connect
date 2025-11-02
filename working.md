@@ -1,6 +1,13 @@
 # Crisis Connect - Technical Architecture & Working Guide
 
+**Last Updated**: November 2, 2025
+
 This document provides a comprehensive technical explanation of the Crisis Connect platform, including its architecture, file structure, data flow, and how all components work together.
+
+## Quick Reference
+- For detailed file-by-file documentation, see [info.md](./info.md)
+- For project overview, see [README.md](./README.md)
+- For competition details, see [submission.md](./submission.md)
 
 ## Table of Contents
 
@@ -699,41 +706,110 @@ UI shows updated role badge
 
 ## Key Technologies Explained
 
-### Drizzle ORM
-- **Type-safe** database queries
-- Schema defined in TypeScript
-- Automatic migration generation
-- Zod integration for validation
+### Core Technologies
 
-### TanStack Query
-- **Server state management**
-- Automatic caching and refetching
-- Optimistic updates
-- Query invalidation
+#### Frontend Stack
+- **React 18.3.1** - Component-based UI library with hooks
+- **TypeScript 5.6.3** - Type-safe JavaScript for better DX
+- **Vite 5.4.20** - Fast build tool with instant HMR
+- **Wouter 3.3.5** - Lightweight routing (1.6KB)
+- **TanStack Query 5.60.5** - Server state management and caching
+- **shadcn/ui + Radix UI** - Accessible component system
+- **Tailwind CSS 3.4.17** - Utility-first CSS framework
 
-### Wouter
-- **Lightweight routing** (1.6KB)
-- Hook-based API
+#### Backend Stack
+- **Express.js 4.21.2** - Web server framework
+- **TypeScript 5.6.3** - Type-safe server code
+- **Drizzle ORM 0.39.1** - Type-safe SQL ORM
+- **PostgreSQL (Neon)** - Serverless database
+- **WebSocket (ws 8.18.0)** - Real-time communication
+- **JWT (jsonwebtoken 9.0.2)** - Authentication tokens
+- **bcryptjs 3.0.2** - Password hashing
+
+#### AI & ML
+- **OpenAI SDK 6.7.0** - GPT-4o-mini integration
+- **TensorFlow.js 4.22.0** - Browser-based ML
+- **MobileNet 2.1.1** - Image classification
+
+#### Security & Middleware
+- **Helmet.js 8.1.0** - Security headers (CSP, HSTS)
+- **CORS 2.8.5** - Cross-origin protection
+- **express-rate-limit 8.1.0** - API rate limiting
+- **csurf 1.2.2** - CSRF protection
+- **express-mongo-sanitize 2.2.0** - NoSQL injection prevention
+
+#### Storage & Media
+- **Google Cloud Storage 7.17.2** - S3-compatible object storage
+- **Uppy 5.x** - File upload widget with S3 support
+- **Sharp 0.34.4** - Image processing and optimization
+
+#### Visualization
+- **Leaflet 1.9.4** - Interactive maps
+- **React Leaflet 4.2.1** - React wrapper for Leaflet
+- **Leaflet.heat 0.2.0** - Heatmap visualization
+- **Recharts 2.15.2** - Chart library for analytics
+
+#### Forms & Validation
+- **React Hook Form 7.55.0** - Form state management
+- **Zod 3.24.2** - Schema validation
+- **@hookform/resolvers 3.10.0** - Zod integration
+
+#### Utilities
+- **date-fns 3.6.0** - Date manipulation
+- **Framer Motion 11.13.1** - Animations
+- **memoizee 0.4.17** - Function memoization
+- **compression 1.8.1** - Gzip compression
+
+### Technology Deep Dive
+
+#### Drizzle ORM
+- **Type-safe** database queries with full TypeScript support
+- Schema defined in TypeScript (`shared/schema.ts`)
+- Automatic migration generation with Drizzle Kit
+- Zod integration for validation via `drizzle-zod`
+- No code generation required
+- SQL-like syntax with type inference
+
+#### TanStack Query
+- **Server state management** for all API calls
+- Automatic caching with configurable TTL
+- Background refetching and revalidation
+- Optimistic updates for better UX
+- Query invalidation on mutations
+- Loading and error states
+- Pagination and infinite scroll support
+
+#### Wouter
+- **Lightweight routing** library (1.6KB gzipped)
+- Hook-based API (`useLocation`, `useRoute`)
 - No dependencies
 - Perfect for single-page apps
+- Supports nested routes and redirects
+- Server-side rendering compatible
 
-### shadcn/ui
-- **Copy-paste components** (not a package)
-- Built on Radix UI
-- Fully customizable
-- Accessible by default
+#### shadcn/ui
+- **Copy-paste components** (not an npm package)
+- Built on Radix UI primitives
+- Fully customizable via Tailwind
+- Accessible by default (ARIA compliant)
+- Dark mode support
+- 50+ components available
 
-### Uppy
-- **File upload** with progress
-- S3 multipart upload
-- Drag-and-drop
-- Image previews
+#### Uppy
+- **File upload** widget with beautiful UI
+- S3 multipart upload support
+- Progress tracking and resumable uploads
+- Drag-and-drop interface
+- Image previews and cropping
+- File validation and restrictions
 
-### Leaflet
-- **Interactive maps**
-- Marker clustering
-- Custom icons
-- Mobile-friendly
+#### Leaflet
+- **Interactive maps** with OpenStreetMap tiles
+- Custom marker icons by severity
+- Marker clustering for performance
+- Heatmap layer with leaflet.heat
+- Mobile-friendly touch gestures
+- Filter controls and timeline playback
 
 ---
 
@@ -799,14 +875,60 @@ npm start
 
 ---
 
+## Recent Updates (November 2025)
+
+### Authentication Migration
+- Migrated from Replit Auth (OAuth) to **JWT-based authentication**
+- Access tokens (15min expiry) + Refresh tokens (7 days)
+- Token storage in localStorage + httpOnly cookies
+- New endpoints: `/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`
+
+### Identity Verification System
+- **Email OTP verification** (6-digit code, 10min expiry)
+- **Phone SMS OTP verification** (6-digit code, 10min expiry)
+- **Simulated Aadhaar verification** (12-digit format validation)
+- Increases user trust score upon completion
+
+### User Reputation System
+- **Trust score** (0-100) based on:
+  - Verified contributions (reports, resources)
+  - Identity verification completion
+  - Achievements and milestones
+- Reputation dashboard for users
+- Trust score badges throughout UI
+
+### Advanced Features
+- **Predictive Modeling**: AI-powered disaster forecasting with external APIs
+- **Image Classification**: TensorFlow.js MobileNet for disaster type detection
+- **Duplicate Clustering**: Non-AI clustering algorithm for duplicate reports
+- **Cluster Management**: Admin UI for managing duplicate groups
+
+### Performance Enhancements
+- **In-memory caching** with memoizee (LRU cache)
+- **Pagination** across all list endpoints
+- **Database indexes** on frequently queried fields
+- **Response compression** (gzip for responses > 1KB)
+- **Cache invalidation** on data mutations
+
+### Security Hardening
+- **Rate limiting** on all critical endpoints
+- **Audit logging** for all auth events
+- **WebSocket encryption** (optional AES-GCM)
+- **CSRF protection** with csurf middleware
+- **Input sanitization** against NoSQL injection
+- **Security headers** via Helmet.js
+
+---
+
 ## Development Workflow
 
 ### Making Changes
 
 1. **Schema Changes**:
    - Edit `shared/schema.ts`
-   - Run `npm run db:push`
+   - Run `npm run db:push` (or `npm run db:push --force` if needed)
    - Update affected components
+   - Update types in frontend/backend
 
 2. **New Feature**:
    - Add backend route in `/server/routes`
