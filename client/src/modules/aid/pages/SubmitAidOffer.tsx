@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { insertAidOfferSchema } from "@shared/schema";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 
@@ -42,6 +42,8 @@ export default function SubmitAidOffer() {
       });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/aid-offers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/aid-offers/mine"] });
       toast({
         title: "Offer Submitted",
         description: "Your aid offer has been submitted successfully. You can now see AI-powered matches!",

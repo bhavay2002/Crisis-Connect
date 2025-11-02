@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { insertResourceRequestSchema } from "@shared/schema";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 
@@ -54,6 +54,8 @@ export default function SubmitResourceRequest() {
       });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/resource-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/resource-requests/mine"] });
       toast({
         title: "Request Submitted",
         description: "Your resource request has been submitted successfully.",

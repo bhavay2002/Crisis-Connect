@@ -277,23 +277,40 @@ function AddInventoryForm({ onSuccess }: { onSuccess: () => void }) {
     description: "",
   });
 
+  const { data: user } = useQuery<any>({
+    queryKey: ["/api/auth/user"],
+  });
+
   const addItemMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest("/api/inventory", { method: "POST", body: JSON.stringify(data) });
+      const payload = {
+        ...data,
+        managedBy: user?.id,
+      };
+      return await apiRequest("/api/inventory", { method: "POST", body: JSON.stringify(payload) });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
       queryClient.invalidateQueries({ queryKey: ["/api/inventory/low-stock"] });
+      setFormData({
+        name: "",
+        itemType: "food",
+        quantity: 0,
+        unit: "",
+        location: "",
+        minimumThreshold: 10,
+        description: "",
+      });
       toast({
         title: "Success",
         description: "Inventory item added successfully",
       });
       onSuccess();
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to add inventory item",
+        description: error.message || "Failed to add inventory item",
         variant: "destructive",
       });
     },
@@ -301,6 +318,14 @@ function AddInventoryForm({ onSuccess }: { onSuccess: () => void }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user?.id) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to add inventory items",
+        variant: "destructive",
+      });
+      return;
+    }
     addItemMutation.mutate(formData);
   };
 
