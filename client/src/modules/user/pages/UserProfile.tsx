@@ -24,7 +24,7 @@ export default function UserProfile() {
   const { user } = useAuth();
 
   const { data: reputation, isLoading: reputationLoading } = useQuery<UserReputation>({
-    queryKey: ["/api/reputation/mine"],
+    queryKey: ["/api/reputation/me"],
     enabled: !!user,
   });
 

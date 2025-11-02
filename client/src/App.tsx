@@ -14,6 +14,8 @@ import RoleSelection from "@/modules/auth/pages/RoleSelection";
 import Dashboard from "@/modules/reports/pages/Dashboard";
 import ActiveReports from "@/modules/reports/pages/ActiveReports";
 import SubmitReport from "@/modules/reports/pages/SubmitReport";
+import MyReports from "@/modules/reports/pages/MyReports";
+import ResponseTeams from "@/modules/reports/pages/ResponseTeams";
 import ResourceRequests from "@/modules/resources/pages/ResourceRequests";
 import ResourceManagement from "@/modules/resources/pages/ResourceManagement";
 import SubmitResourceRequest from "@/modules/resources/pages/SubmitResourceRequest";
@@ -88,8 +90,8 @@ function Router() {
           <Route path="/predictions" component={PredictiveModeling} />
           <Route path="/select-role" component={RoleSelection} />
           <Route path="/role-selection" component={RoleSelection} />
-          <Route path="/my-reports" component={Dashboard} />
-          <Route path="/teams" component={Dashboard} />
+          <Route path="/my-reports" component={MyReports} />
+          <Route path="/teams" component={ResponseTeams} />
         </>
       )}
     </Switch>

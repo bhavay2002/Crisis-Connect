@@ -136,7 +136,7 @@ export default function IdentityVerification() {
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/reputation/mine"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reputation/me"] });
       toast({
         title: "Aadhaar Verified",
         description: data.note || "Your Aadhaar has been successfully verified!",

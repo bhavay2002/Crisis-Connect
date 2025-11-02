@@ -22,7 +22,7 @@ export default function ReputationDashboard() {
   const { user } = useAuth();
 
   const { data: reputation, isLoading } = useQuery<UserReputation>({
-    queryKey: ["/api/reputation/mine"],
+    queryKey: ["/api/reputation/me"],
     enabled: !!user,
   });
 

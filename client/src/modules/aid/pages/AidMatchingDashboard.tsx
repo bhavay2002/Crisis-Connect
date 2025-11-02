@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
+import DashboardLayout from "@/components/layout/DashboardLayout";
 
 const resourceIcons = {
   food: Package,
@@ -252,7 +253,10 @@ export default function AidMatchingDashboard() {
 
   const commitMutation = useMutation({
     mutationFn: async ({ offerId, requestId }: { offerId: string; requestId: string }) => {
-      return apiRequest("POST", `/api/aid-offers/${offerId}/commit`, { requestId });
+      return apiRequest(`/api/aid-offers/${offerId}/commit`, {
+        method: "POST",
+        body: JSON.stringify({ requestId }),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/aid-offers"] });
@@ -275,7 +279,9 @@ export default function AidMatchingDashboard() {
 
   const deliverMutation = useMutation({
     mutationFn: async (offerId: string) => {
-      return apiRequest("POST", `/api/aid-offers/${offerId}/deliver`);
+      return apiRequest(`/api/aid-offers/${offerId}/deliver`, {
+        method: "POST",
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/aid-offers"] });
@@ -340,72 +346,77 @@ export default function AidMatchingDashboard() {
 
   if (!canManageAid) {
     return (
-      <div className="container mx-auto p-4 md:p-6 max-w-4xl">
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Access Restricted</AlertTitle>
-          <AlertDescription>
-            This page is only available to volunteers, NGOs, and administrators.
-            Please update your role in the settings to access aid matching features.
-          </AlertDescription>
-        </Alert>
-      </div>
+      <DashboardLayout>
+        <div className="container mx-auto p-4 md:p-6 max-w-4xl">
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Access Restricted</AlertTitle>
+            <AlertDescription>
+              This page is only available to volunteers, NGOs, and administrators.
+              Please update your role in the settings to access aid matching features.
+            </AlertDescription>
+          </Alert>
+        </div>
+      </DashboardLayout>
     );
   }
 
   if (isLoadingOffers || isLoadingRequests) {
     return (
-      <div className="container mx-auto p-4 md:p-6 max-w-7xl">
-        <Skeleton className="h-12 w-64 mb-6" />
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardHeader>
-                <Skeleton className="h-6 w-3/4" />
-                <Skeleton className="h-4 w-full" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-32 w-full" />
-              </CardContent>
-            </Card>
-          ))}
+      <DashboardLayout>
+        <div className="container mx-auto p-4 md:p-6 max-w-7xl">
+          <Skeleton className="h-12 w-64 mb-6" />
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <CardHeader>
+                  <Skeleton className="h-6 w-3/4" />
+                  <Skeleton className="h-4 w-full" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-32 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
-      </div>
+      </DashboardLayout>
     );
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-6 max-w-7xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Aid Matching Dashboard</h1>
-          <p className="text-muted-foreground">
-            Approve and manage matches between your aid offers and help requests
-          </p>
+    <DashboardLayout>
+      <div className="container mx-auto p-4 md:p-6 max-w-7xl">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight mb-2">Aid Matching Dashboard</h1>
+            <p className="text-muted-foreground">
+              Approve and manage matches between your aid offers and help requests
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate("/aid-offers")} data-testid="button-view-offers">
+              View My Offers
+            </Button>
+            <Button onClick={() => navigate("/submit-aid-offer")} data-testid="button-create-offer">
+              <Plus className="mr-2 h-4 w-4" />
+              Offer Aid
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate("/aid-offers")} data-testid="button-view-offers">
-            View My Offers
-          </Button>
-          <Button onClick={() => navigate("/submit-aid-offer")} data-testid="button-create-offer">
-            <Plus className="mr-2 h-4 w-4" />
-            Offer Aid
-          </Button>
-        </div>
-      </div>
 
-      <Tabs defaultValue="pending" className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="pending" data-testid="tab-pending-matches">
-            Pending Approval ({pendingMatches.length})
-          </TabsTrigger>
-          <TabsTrigger value="committed" data-testid="tab-active-commitments">
-            Active Commitments ({activeCommitments.length})
-          </TabsTrigger>
-          <TabsTrigger value="delivered" data-testid="tab-completed">
-            Completed ({completedDeliveries.length})
-          </TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue="pending" className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="pending" data-testid="tab-pending-matches">
+              Pending Approval ({pendingMatches.length})
+            </TabsTrigger>
+            <TabsTrigger value="committed" data-testid="tab-active-commitments">
+              Active Commitments ({activeCommitments.length})
+            </TabsTrigger>
+            <TabsTrigger value="delivered" data-testid="tab-completed">
+              Completed ({completedDeliveries.length})
+            </TabsTrigger>
+          </TabsList>
 
         <TabsContent value="pending" className="space-y-4">
           {pendingMatches.length === 0 ? (
@@ -498,6 +509,7 @@ export default function AidMatchingDashboard() {
           )}
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }

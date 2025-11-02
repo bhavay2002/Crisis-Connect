@@ -12,6 +12,9 @@ import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 
 const app = express();
 
+// Trust proxy - Required for rate limiting and IP detection on Replit/cloud platforms
+app.set('trust proxy', true);
+
 const isDevelopment = config.isDevelopment;
 
 // CORS Configuration - Strict in production, permissive in development
