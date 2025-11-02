@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import type { ResourceRequest, AidOffer } from "../shared/schema";
+import type { ResourceRequest, AidOffer } from "@shared/schema";
 import { logger } from "../../utils/logger";
 
 let openai: OpenAI | null = null;
@@ -276,13 +276,13 @@ Format:
         }
 
         // Increase score for urgency
-        const urgencyBonus = {
+        const urgencyBonus: Record<string, number> = {
           critical: 15,
           high: 10,
           medium: 5,
           low: 0,
         };
-        score += urgencyBonus[request.urgency] || 0;
+        score += urgencyBonus[request.urgency as string] || 0;
 
         // Increase score for proximity
         if (distance !== undefined) {

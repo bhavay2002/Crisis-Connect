@@ -267,15 +267,6 @@ export function registerAidRoutes(app: Express) {
           consumedOfferIds.add(bestMatch.offerId);
           stillAvailableOffers = stillAvailableOffers.filter(o => o.id !== bestMatch.offerId);
           
-          // Persist match suggestion to database
-          await storage.createMatchSuggestion({
-            requestId: request.id,
-            offerId: bestMatch.offerId,
-            score: bestMatch.score,
-            reasoning: bestMatch.reasoning,
-            status: "pending",
-          });
-
           allMatches.push({
             requestId: request.id,
             requestType: request.resourceType,

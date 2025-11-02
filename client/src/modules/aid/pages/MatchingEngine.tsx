@@ -82,30 +82,23 @@ export default function MatchingEngine() {
   });
 
   // Listen for batch matching completion via WebSocket
-  const { lastMessage } = useWebSocket();
-
-  useEffect(() => {
-    if (lastMessage) {
-      try {
-        const message = JSON.parse(lastMessage);
-        if (message.type === "batch_matching_complete") {
-          setLastRunTime(new Date(message.data.timestamp));
-          refetchAnalytics();
-          
-          toast({
-            title: "Batch Matching Complete",
-            description: `Found ${message.data.totalMatches} potential matches. Analytics updated.`,
-          });
-        }
-      } catch (error) {
-        // Ignore parsing errors
+  useWebSocket({
+    onMessage: (message) => {
+      if (message.type === "batch_matching_complete") {
+        setLastRunTime(new Date(message.data.timestamp));
+        refetchAnalytics();
+        
+        toast({
+          title: "Batch Matching Complete",
+          description: `Found ${message.data.totalMatches} potential matches. Analytics updated.`,
+        });
       }
-    }
-  }, [lastMessage, refetchAnalytics, toast]);
+    },
+  });
 
   const batchMatchMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/matching/run-batch") as Promise<BatchMatchResult>;
+      return apiRequest<BatchMatchResult>("/api/matching/run-batch", { method: "POST" });
     },
     onSuccess: (data: BatchMatchResult) => {
       setLastRunTime(new Date());
