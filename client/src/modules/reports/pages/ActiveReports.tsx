@@ -246,7 +246,7 @@ export default function ActiveReports() {
                   }}
                   onVerify={() => handleVerify(report.id)}
                   onConfirm={() => handleConfirm(report.id, isConfirmed)}
-                  onViewDetails={() => console.log(`View details ${report.id}`)}
+                  onViewDetails={() => setLocation(`/reports/${report.id}`)}
                   canConfirm={canConfirm}
                   userRole={currentUser?.role}
                   hasVerified={hasVerified}

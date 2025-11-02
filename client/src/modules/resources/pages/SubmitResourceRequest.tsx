@@ -193,8 +193,8 @@ export default function SubmitResourceRequest() {
                         min="1"
                         placeholder="Number of units needed"
                         data-testid="input-quantity"
-                        {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                        value={field.value}
+                        onChange={(e) => field.onChange(Number(e.target.value) || 1)}
                       />
                     </FormControl>
                     <FormMessage />

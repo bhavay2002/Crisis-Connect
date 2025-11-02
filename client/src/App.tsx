@@ -13,6 +13,7 @@ import Register from "@/modules/auth/pages/Register";
 import RoleSelection from "@/modules/auth/pages/RoleSelection";
 import Dashboard from "@/modules/reports/pages/Dashboard";
 import ActiveReports from "@/modules/reports/pages/ActiveReports";
+import ReportDetails from "@/modules/reports/pages/ReportDetails";
 import SubmitReport from "@/modules/reports/pages/SubmitReport";
 import MyReports from "@/modules/reports/pages/MyReports";
 import ResponseTeams from "@/modules/reports/pages/ResponseTeams";
@@ -68,6 +69,7 @@ function Router() {
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/volunteer" component={VolunteerDashboard} />
           <Route path="/reports" component={ActiveReports} />
+          <Route path="/reports/:id" component={ReportDetails} />
           <Route path="/submit" component={SubmitReport} />
           <Route path="/map" component={Map} />
           <Route path="/resource-requests" component={ResourceRequests} />

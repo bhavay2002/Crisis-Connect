@@ -215,7 +215,7 @@ export default function ResourceRequests() {
 
   const fulfillMutation = useMutation({
     mutationFn: async (requestId: string) => {
-      return apiRequest("POST", `/api/resource-requests/${requestId}/fulfill`);
+      return apiRequest(`/api/resource-requests/${requestId}/fulfill`, { method: "POST" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/resource-requests"] });

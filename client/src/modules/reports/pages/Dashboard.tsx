@@ -206,7 +206,7 @@ export default function Dashboard() {
                     status: report.status,
                   }}
                   onVerify={() => handleVerify(report.id)}
-                  onViewDetails={() => console.log(`View details ${report.id}`)}
+                  onViewDetails={() => setLocation(`/reports/${report.id}`)}
                 />
               ))}
             </div>
