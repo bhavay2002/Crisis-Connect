@@ -1,15 +1,18 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertTriangle, Shield, MapPinned, Users, Bell, CheckCircle } from "lucide-react";
+import { useLocation } from "wouter";
 import heroImage from "@assets/generated_images/Emergency_response_team_coordination_9097dcd9.png";
 
 export default function Landing() {
+  const [, setLocation] = useLocation();
+
   const handleLogin = () => {
-    window.location.href = "/login";
+    setLocation("/login");
   };
 
   const handleRegister = () => {
-    window.location.href = "/register";
+    setLocation("/register");
   };
 
   return (

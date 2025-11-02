@@ -48,7 +48,10 @@ export default function SubmitResourceRequest() {
 
   const submitMutation = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
-      return apiRequest("POST", "/api/resource-requests", data);
+      return apiRequest("/api/resource-requests", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
     },
     onSuccess: () => {
       toast({

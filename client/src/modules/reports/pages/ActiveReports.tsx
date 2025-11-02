@@ -17,8 +17,10 @@ import { Search, Filter } from "lucide-react";
 import type { DisasterReport } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { useLocation } from "wouter";
 
 export default function ActiveReports() {
+  const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -58,7 +60,7 @@ export default function ActiveReports() {
 
   const handleVerify = async (reportId: string) => {
     try {
-      await apiRequest("POST", `/api/reports/${reportId}/verify`);
+      await apiRequest(`/api/reports/${reportId}/verify`, { method: "POST" });
       toast({
         title: "Report upvoted",
         description: "Thank you for helping verify this report",
@@ -73,7 +75,7 @@ export default function ActiveReports() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          setLocation("/login");
         }, 500);
         return;
       }
@@ -89,14 +91,14 @@ export default function ActiveReports() {
     try {
       if (isConfirmed) {
         // Unconfirm the report
-        await apiRequest("DELETE", `/api/reports/${reportId}/confirm`);
+        await apiRequest(`/api/reports/${reportId}/confirm`, { method: "DELETE" });
         toast({
           title: "Confirmation removed",
           description: "Report confirmation has been removed",
         });
       } else {
         // Confirm the report
-        await apiRequest("POST", `/api/reports/${reportId}/confirm`);
+        await apiRequest(`/api/reports/${reportId}/confirm`, { method: "POST" });
         toast({
           title: "Report confirmed",
           description: "You have officially confirmed this report",
@@ -111,7 +113,7 @@ export default function ActiveReports() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          setLocation("/login");
         }, 500);
         return;
       }

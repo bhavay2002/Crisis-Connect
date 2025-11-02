@@ -36,7 +36,10 @@ export default function SubmitAidOffer() {
 
   const submitMutation = useMutation({
     mutationFn: async (data: z.infer<typeof formSchema>) => {
-      return apiRequest("POST", "/api/aid-offers", data);
+      return apiRequest("/api/aid-offers", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
     },
     onSuccess: () => {
       toast({

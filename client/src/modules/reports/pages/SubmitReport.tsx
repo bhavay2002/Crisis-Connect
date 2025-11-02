@@ -21,8 +21,10 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { ObjectUploader } from "@/components/feed/ObjectUploader";
 import { Badge } from "@/components/ui/badge";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
+import { useLocation } from "wouter";
 
 export default function SubmitReport() {
+  const [, setLocation] = useLocation();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     type: "",
@@ -46,7 +48,10 @@ export default function SubmitReport() {
 
   const submitMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return await apiRequest("POST", "/api/reports", data);
+      return await apiRequest("/api/reports", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
     },
     onSuccess: () => {
       toast({
@@ -75,7 +80,7 @@ export default function SubmitReport() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          setLocation("/login");
         }, 500);
         return;
       }

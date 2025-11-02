@@ -33,7 +33,10 @@ export function VotingControls({
 
   const voteMutation = useMutation({
     mutationFn: async (voteType: "upvote" | "downvote") => {
-      return await apiRequest("POST", `/api/reports/${reportId}/vote`, { voteType });
+      return await apiRequest(`/api/reports/${reportId}/vote`, {
+        method: "POST",
+        body: JSON.stringify({ voteType }),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/reports', reportId] });
@@ -52,7 +55,7 @@ export function VotingControls({
 
   const deleteVoteMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("DELETE", `/api/reports/${reportId}/vote`);
+      return await apiRequest(`/api/reports/${reportId}/vote`, { method: "DELETE" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/reports', reportId] });

@@ -13,8 +13,10 @@ import { Search } from "lucide-react";
 import type { DisasterReport } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { useLocation } from "wouter";
 
 export default function Dashboard() {
+  const [, setLocation] = useLocation();
   const [showAlert, setShowAlert] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const queryClient = useQueryClient();
@@ -61,7 +63,7 @@ export default function Dashboard() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          setLocation("/login");
         }, 500);
         return;
       }

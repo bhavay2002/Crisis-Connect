@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "wouter";
 import type { DisasterReport, User } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,7 @@ import {
 } from "lucide-react";
 
 export default function AdminDashboard() {
+  const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -103,9 +105,12 @@ export default function AdminDashboard() {
   // Flag report mutation
   const flagReportMutation = useMutation({
     mutationFn: async ({ reportId, flagType, notes }: { reportId: string; flagType: string; notes?: string }) => {
-      return await apiRequest("POST", `/api/admin/reports/${reportId}/flag`, {
-        flagType,
-        adminNotes: notes,
+      return await apiRequest(`/api/admin/reports/${reportId}/flag`, {
+        method: "POST",
+        body: JSON.stringify({
+          flagType,
+          adminNotes: notes,
+        }),
       });
     },
     onSuccess: () => {
@@ -127,7 +132,7 @@ export default function AdminDashboard() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          setLocation("/login");
         }, 500);
         return;
       }
@@ -142,8 +147,11 @@ export default function AdminDashboard() {
   // Assign report mutation
   const assignReportMutation = useMutation({
     mutationFn: async ({ reportId, volunteerId }: { reportId: string; volunteerId: string }) => {
-      return await apiRequest("POST", `/api/admin/reports/${reportId}/assign`, {
-        volunteerId,
+      return await apiRequest(`/api/admin/reports/${reportId}/assign`, {
+        method: "POST",
+        body: JSON.stringify({
+          volunteerId,
+        }),
       });
     },
     onSuccess: () => {
@@ -168,8 +176,11 @@ export default function AdminDashboard() {
   // Add notes mutation
   const addNotesMutation = useMutation({
     mutationFn: async ({ reportId, notes }: { reportId: string; notes: string }) => {
-      return await apiRequest("PATCH", `/api/admin/reports/${reportId}/notes`, {
-        notes,
+      return await apiRequest(`/api/admin/reports/${reportId}/notes`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          notes,
+        }),
       });
     },
     onSuccess: () => {
@@ -194,7 +205,10 @@ export default function AdminDashboard() {
   // Update status mutation
   const updateStatusMutation = useMutation({
     mutationFn: async ({ reportId, status }: { reportId: string; status: string }) => {
-      return await apiRequest("PATCH", `/api/reports/${reportId}/status`, { status });
+      return await apiRequest(`/api/reports/${reportId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
     },
     onSuccess: () => {
       toast({
@@ -216,7 +230,10 @@ export default function AdminDashboard() {
   // Update user role mutation
   const updateUserRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      return await apiRequest("POST", `/api/admin/users/${userId}/role`, { role });
+      return await apiRequest(`/api/admin/users/${userId}/role`, {
+        method: "POST",
+        body: JSON.stringify({ role }),
+      });
     },
     onSuccess: () => {
       toast({
@@ -236,7 +253,7 @@ export default function AdminDashboard() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          setLocation("/login");
         }, 500);
         return;
       }

@@ -256,17 +256,13 @@ export default function Register() {
         <CardFooter className="flex flex-col space-y-4">
           <div className="text-sm text-center text-muted-foreground">
             Already have an account?{" "}
-            <Link href="/login">
-              <a className="text-primary hover:underline" data-testid="link-login">
-                Sign in
-              </a>
+            <Link href="/login" className="text-primary hover:underline" data-testid="link-login">
+              Sign in
             </Link>
           </div>
           <div className="text-sm text-center text-muted-foreground">
-            <Link href="/">
-              <a className="text-primary hover:underline" data-testid="link-home">
-                Back to home
-              </a>
+            <Link href="/" className="text-primary hover:underline" data-testid="link-home">
+              Back to home
             </Link>
           </div>
         </CardFooter>
