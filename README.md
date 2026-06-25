@@ -1,4 +1,4 @@
-# Crisis Connect
+# Crisis Connect v2
 
 A real-time disaster management and emergency response coordination platform designed to save lives and streamline relief operations during natural disasters and emergencies.
 
@@ -9,24 +9,28 @@ Crisis Connect connects disaster victims, volunteers, NGOs, and government agenc
 ## Key Features
 
 ### For Citizens
+
 - **Emergency Reporting**: Submit disaster reports with GPS location, photos, and videos
 - **AI Validation**: Automatic detection of duplicate and potentially fake reports
 - **Resource Requests**: Request emergency resources (food, water, shelter, medical supplies)
 - **Real-time Updates**: Live notifications about response activities
 
 ### For Volunteers & NGOs
+
 - **Volunteer Hub**: Manage aid offers and match with resource requests
 - **AI-Powered Matching**: Smart matching between available resources and urgent needs
 - **Verification System**: Crowd-sourced verification of incident reports
 - **Resource Tracking**: Track committed resources from offer to delivery
 
 ### For Administrators
+
 - **User Management**: Assign roles and manage platform access
 - **Report Moderation**: Flag, verify, and manage disaster reports
 - **Analytics Dashboard**: Comprehensive metrics and insights
 - **Government Reports**: Export analytics data in CSV or JSON format
 
 ### Platform Features
+
 - **Interactive Map**: Visual representation of incidents with severity indicators
 - **Real-time Notifications**: WebSocket-powered live updates
 - **Mobile-First Design**: Optimized for emergency situations on any device
@@ -46,6 +50,7 @@ Crisis Connect connects disaster victims, volunteers, NGOs, and government agenc
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js 20+
 - PostgreSQL database
 - Replit Auth credentials
@@ -56,11 +61,13 @@ Crisis Connect connects disaster victims, volunteers, NGOs, and government agenc
 
 1. Clone the repository
 2. Install dependencies:
+
 ```bash
 npm install
 ```
 
 3. Set up environment variables:
+
 - `DATABASE_URL`: PostgreSQL connection string
 - `ISSUER_URL`: Replit Auth issuer URL
 - `CLIENT_ID`: OAuth client ID
@@ -69,11 +76,13 @@ npm install
 - Object storage credentials (automatically configured via Replit)
 
 4. Run database migrations:
+
 ```bash
 npm run db:push
 ```
 
 5. Start the development server:
+
 ```bash
 npm run dev
 ```
@@ -104,20 +113,21 @@ crisis-connect/
 ### Roles and Access
 
 1. **Citizen**: Default role for new users
+
    - Submit disaster reports
    - Request resources
    - Verify reports
-
 2. **Volunteer**: For individual volunteers
+
    - All citizen features
    - Offer aid/resources
    - Access volunteer hub
-
 3. **NGO**: For relief organizations
+
    - All volunteer features
    - Organization-level resource management
-
 4. **Admin**: Platform administrators
+
    - All features
    - User management
    - Report moderation
@@ -151,6 +161,7 @@ crisis-connect/
 ## Analytics & Reporting
 
 Administrators can export comprehensive analytics reports including:
+
 - Total incidents and verification rates
 - Disaster frequency by type
 - Geographic impact analysis
