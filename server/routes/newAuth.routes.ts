@@ -59,11 +59,19 @@ export function registerNewAuthRoutes(app: Express) {
 
         const { password: _, refreshToken: __, ...userWithoutPassword } = user;
 
+        // Set refresh token as httpOnly cookie — not accessible to JS
+        res.cookie("refreshToken", refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "strict",
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+          path: "/api/auth",
+        });
+
         res.status(201).json({
           message: "User registered successfully",
           user: userWithoutPassword,
           accessToken,
-          refreshToken,
         });
       } catch (error) {
         logger.error("Registration failed", error instanceof Error ? error : undefined);
@@ -108,15 +116,26 @@ export function registerNewAuthRoutes(app: Express) {
 
         await AuditLogger.logSuccessfulLogin(user.id, req);
 
+        const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
+        storage.upsertDeviceFingerprint({ userId: user.id, ipAddress: ip, userAgent: req.headers["user-agent"] }).catch(() => {});
+
         logger.info("User logged in successfully", { userId: user.id, email });
 
         const { password: _, refreshToken: __, ...userWithoutPassword } = user;
+
+        // Set refresh token as httpOnly cookie — not accessible to JS
+        res.cookie("refreshToken", refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "strict",
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+          path: "/api/auth",
+        });
 
         res.json({
           message: "Login successful",
           user: userWithoutPassword,
           accessToken,
-          refreshToken,
         });
       } catch (error) {
         logger.error("Login failed", error instanceof Error ? error : undefined);
@@ -127,7 +146,8 @@ export function registerNewAuthRoutes(app: Express) {
 
   app.post("/api/auth/refresh", async (req, res) => {
     try {
-      const { refreshToken } = req.body;
+      // Prefer the httpOnly cookie; fall back to body for legacy clients
+      const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
 
       if (!refreshToken) {
         return res.status(401).json({ message: "Refresh token required" });
@@ -144,12 +164,18 @@ export function registerNewAuthRoutes(app: Express) {
 
       await storage.updateUserRefreshToken(user.id, newRefreshToken);
 
+      // Rotate the httpOnly cookie with the new refresh token
+      res.cookie("refreshToken", newRefreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: "/api/auth",
+      });
+
       logger.info("Token refreshed", { userId: user.id });
 
-      res.json({
-        accessToken,
-        refreshToken: newRefreshToken,
-      });
+      res.json({ accessToken });
     } catch (error) {
       logger.error("Token refresh failed", error instanceof Error ? error : undefined);
       res.status(403).json({ message: "Invalid or expired refresh token" });
@@ -163,6 +189,9 @@ export function registerNewAuthRoutes(app: Express) {
       await storage.updateUserRefreshToken(userId, null);
 
       await AuditLogger.logUserLogout(userId, req);
+
+      // Clear the httpOnly refresh token cookie
+      res.clearCookie("refreshToken", { path: "/api/auth" });
 
       logger.info("User logged out", { userId });
 
