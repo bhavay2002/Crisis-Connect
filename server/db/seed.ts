@@ -14,10 +14,12 @@ async function seed() {
   // Create test users
   const testUsers = await db
     .insert(users)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .values([
       {
         id: "test-admin-1",
         email: "admin@test.com",
+        password: "",
         name: "Admin User",
         firstName: "Admin",
         lastName: "User",
@@ -26,6 +28,7 @@ async function seed() {
       {
         id: "test-volunteer-1",
         email: "volunteer@test.com",
+        password: "",
         name: "Volunteer Smith",
         firstName: "Volunteer",
         lastName: "Smith",
@@ -34,6 +37,7 @@ async function seed() {
       {
         id: "test-citizen-1",
         email: "citizen@test.com",
+        password: "",
         name: "Jane Citizen",
         firstName: "Jane",
         lastName: "Citizen",
@@ -42,12 +46,13 @@ async function seed() {
       {
         id: "test-ngo-1",
         email: "ngo@test.com",
+        password: "",
         name: "NGO Representative",
         firstName: "NGO",
         lastName: "Rep",
         role: "ngo",
       },
-    ])
+    ] as any)
     .onConflictDoNothing()
     .returning();
 
@@ -181,7 +186,7 @@ async function seed() {
     .values([
       {
         userId: "test-citizen-1",
-        emergencyType: "accident",
+        emergencyType: "road_accident",
         severity: "critical",
         status: "active",
         location: "456 Park Avenue",

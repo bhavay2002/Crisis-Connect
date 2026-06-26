@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction, ErrorRequestHandler } from "expre
 import { fromZodError } from "zod-validation-error";
 import { AppError } from "../errors/AppError";
 import { logger } from "../utils/logger";
+import { config } from "../config";
 
 /**
  * Standardized error response interface
@@ -54,7 +55,7 @@ export const errorHandler: ErrorRequestHandler = (
         code: err.code,
         statusCode: err.statusCode,
         details: err.details,
-        ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+        ...(config.isDevelopment && { stack: err.stack }),
       },
     };
 
@@ -67,12 +68,12 @@ export const errorHandler: ErrorRequestHandler = (
   const response: ErrorResponse = {
     success: false,
     error: {
-      message: process.env.NODE_ENV === "development" 
+      message: config.isDevelopment
         ? err.message 
         : "An unexpected error occurred",
       code: "INTERNAL_ERROR",
       statusCode: 500,
-      ...(process.env.NODE_ENV === "development" && { 
+      ...(config.isDevelopment && { 
         stack: err.stack,
         details: err,
       }),

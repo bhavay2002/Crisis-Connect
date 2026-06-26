@@ -1,4 +1,5 @@
 import { storage } from "../db/storage";
+import { logger } from "../utils/logger";
 
 export type AuditAction = 
   | "role_updated"
@@ -36,10 +37,17 @@ export class AuditLogger {
         ...entry,
       };
       
-      console.log(`[AUDIT] ${JSON.stringify(logEntry)}`);
+      logger.info(`[AUDIT] ${entry.action}`, {
+        userId: entry.userId,
+        targetId: entry.targetId,
+        metadata: entry.metadata,
+        ipAddress: entry.ipAddress,
+        userAgent: entry.userAgent,
+        timestamp: logEntry.timestamp,
+      });
       
     } catch (error) {
-      console.error("Failed to write audit log:", error);
+      logger.error("Failed to write audit log", error instanceof Error ? error : undefined);
     }
   }
 

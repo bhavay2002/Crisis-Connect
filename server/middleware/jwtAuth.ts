@@ -33,7 +33,7 @@ export const authenticateToken: RequestHandler = async (req, res, next) => {
 
     next();
   } catch (error) {
-    logger.warn("Authentication failed", error instanceof Error ? error : undefined);
+    logger.warn("Authentication failed", { error: error instanceof Error ? error.message : String(error) });
     return res.status(403).json({ message: "Invalid or expired token" });
   }
 };

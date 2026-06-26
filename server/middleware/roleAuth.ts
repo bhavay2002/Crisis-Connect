@@ -2,7 +2,7 @@ import type { RequestHandler } from "express";
 import { storage } from "../db/storage";
 import { logger } from "../utils/logger";
 
-export type UserRole = "citizen" | "volunteer" | "ngo" | "admin";
+export type UserRole = "citizen" | "volunteer" | "ngo" | "admin" | "government" | "authority" | "super_admin";
 
 // Middleware to check if user has required role
 export function requireRole(...allowedRoles: UserRole[]): RequestHandler {
@@ -44,14 +44,20 @@ export function requireRole(...allowedRoles: UserRole[]): RequestHandler {
   };
 }
 
-// Middleware to check if user is admin
-export const requireAdmin = requireRole("admin");
+// Middleware to check if user is admin or above
+export const requireAdmin = requireRole("admin", "authority", "super_admin");
+
+// Middleware to check if user is super admin
+export const requireSuperAdmin = requireRole("super_admin");
+
+// Middleware to check if user is authority or above
+export const requireAuthority = requireRole("authority", "super_admin");
 
 // Middleware to check if user is volunteer or higher
-export const requireVolunteer = requireRole("volunteer", "ngo", "admin");
+export const requireVolunteer = requireRole("volunteer", "ngo", "admin", "authority", "super_admin");
 
 // Middleware to check if user is NGO or admin
-export const requireNGO = requireRole("ngo", "admin");
+export const requireNGO = requireRole("ngo", "admin", "authority", "super_admin");
 
 // Helper function to check role programmatically
 export async function hasRole(
