@@ -9,6 +9,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { config, logConfiguration } from "./config";
 import { logger } from "./utils/logger";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
+import { metricsMiddleware } from "./middleware/metricsMiddleware";
 
 const app = express();
 
@@ -144,6 +145,9 @@ app.use(mongoSanitize({
     });
   },
 }));
+
+// Prometheus metrics collection middleware
+app.use(metricsMiddleware());
 
 // Structured request logging
 app.use((req, res, next) => {
