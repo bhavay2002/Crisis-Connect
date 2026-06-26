@@ -15,6 +15,18 @@ export interface Job<T = any> {
 
 export type JobHandler<T = any> = (data: T) => Promise<void>;
 
+// ── Load shedding constants ────────────────────────────────────────────────────
+// Jobs with priority BELOW this threshold are eligible for shedding under load
+const SHED_PRIORITY_THRESHOLD = 5;   // LOW (0) and MEDIUM (1-4) are sheddable
+const MAX_QUEUE_SIZE           = 100; // total pending jobs before shedding kicks in
+
+export class QueueSaturatedError extends Error {
+  constructor(public readonly jobType: string, public readonly priority: number) {
+    super(`Queue saturated — low-priority ${jobType} job shed (priority=${priority})`);
+    this.name = "QueueSaturatedError";
+  }
+}
+
 export class JobQueue {
   private queue: Job[] = [];
   private handlers: Map<string, JobHandler> = new Map();
@@ -23,6 +35,7 @@ export class JobQueue {
   private concurrency = 3;
   private pollInterval = 1000;
   private pollTimer?: NodeJS.Timeout;
+  private shedCount = 0;
 
   constructor(concurrency = 3) {
     this.concurrency = concurrency;
@@ -38,11 +51,27 @@ export class JobQueue {
     data: T,
     options: { priority?: number; maxRetries?: number } = {}
   ): Promise<string> {
+    const priority = options.priority ?? 0;
+
+    // ── §24 Load shedding ─────────────────────────────────────────────────────
+    // If the queue is saturated and this job is low-priority, reject it.
+    // CRITICAL jobs (priority >= SHED_PRIORITY_THRESHOLD) always get through.
+    if (this.queue.length >= MAX_QUEUE_SIZE && priority < SHED_PRIORITY_THRESHOLD) {
+      this.shedCount++;
+      logger.warn("[JobQueue] Load shedding — low-priority job rejected", {
+        jobType: type,
+        priority,
+        queueLength: this.queue.length,
+        shedCount: this.shedCount,
+      });
+      throw new QueueSaturatedError(type, priority);
+    }
+
     const job: Job<T> = {
       id: `${type}-${Date.now()}-${Math.random().toString(36).substring(7)}`,
       type,
       data,
-      priority: options.priority ?? 0,
+      priority,
       retries: 0,
       maxRetries: options.maxRetries ?? 3,
       createdAt: new Date(),
@@ -173,13 +202,36 @@ export class JobQueue {
     }
   }
 
+  /** Returns true when the queue is saturated (low-priority jobs will be shed) */
+  isUnderLoad(): boolean {
+    return this.queue.length >= MAX_QUEUE_SIZE;
+  }
+
+  /** Returns true when a job at the given priority would be shed */
+  shouldShed(priority: number): boolean {
+    return this.isUnderLoad() && priority < SHED_PRIORITY_THRESHOLD;
+  }
+
+  /** Returns load level: "normal" | "elevated" | "critical" */
+  getLoadLevel(): "normal" | "elevated" | "critical" {
+    const pct = this.queue.length / MAX_QUEUE_SIZE;
+    if (pct >= 1.0)  return "critical";
+    if (pct >= 0.75) return "elevated";
+    return "normal";
+  }
+
   getQueueStatus() {
     return {
-      queueLength: this.queue.length,
-      processing: this.processing.size,
-      isRunning: this.isRunning,
-      concurrency: this.concurrency,
+      queueLength:        this.queue.length,
+      processing:         this.processing.size,
+      isRunning:          this.isRunning,
+      concurrency:        this.concurrency,
       registeredHandlers: Array.from(this.handlers.keys()),
+      loadLevel:          this.getLoadLevel(),
+      isUnderLoad:        this.isUnderLoad(),
+      shedCount:          this.shedCount,
+      maxQueueSize:       MAX_QUEUE_SIZE,
+      shedThreshold:      SHED_PRIORITY_THRESHOLD,
     };
   }
 

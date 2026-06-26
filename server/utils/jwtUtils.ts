@@ -1,11 +1,41 @@
 import jwt from "jsonwebtoken";
 import type { User } from "@shared/schema";
 
+const WEAK_SECRET_MARKER = "your-secret-key";
+const WEAK_REFRESH_MARKER = "your-refresh-secret";
+
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "your-refresh-secret-change-in-production";
 
 const ACCESS_TOKEN_EXPIRY = "15m";
 const REFRESH_TOKEN_EXPIRY = "7d";
+
+// Warn loudly at startup if weak fallback secrets are in use
+if (JWT_SECRET.startsWith(WEAK_SECRET_MARKER)) {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "SECURITY ERROR: JWT_SECRET is not set. " +
+      "Generate one with: node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\""
+    );
+  }
+  console.warn(
+    "⚠️  [jwtUtils] JWT_SECRET not set — using insecure development fallback. " +
+    "Set JWT_SECRET env var before deploying to production."
+  );
+}
+
+if (JWT_REFRESH_SECRET.startsWith(WEAK_REFRESH_MARKER)) {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "SECURITY ERROR: JWT_REFRESH_SECRET is not set. " +
+      "Generate one with: node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\""
+    );
+  }
+  console.warn(
+    "⚠️  [jwtUtils] JWT_REFRESH_SECRET not set — using insecure development fallback. " +
+    "Set JWT_REFRESH_SECRET env var before deploying to production."
+  );
+}
 
 export interface TokenPayload {
   userId: string;

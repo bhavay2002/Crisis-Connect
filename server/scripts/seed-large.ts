@@ -97,7 +97,7 @@ async function seed() {
       email: "admin@crisisconnect.com",
       password: hashedPassword,
       name: "System Admin",
-      role: "admin",
+      role: "admin" as "admin",
       phoneNumber: "+1-555-0001",
       emailVerified: new Date(),
     });
@@ -108,13 +108,13 @@ async function seed() {
         email: `user${i + 1}@example.com`,
         password: hashedPassword,
         name: userNames[i] || `User ${i + 1}`,
-        role: role,
+        role: role as "citizen" | "volunteer" | "ngo" | "government" | "admin",
         phoneNumber: `+1-555-${String(i + 100).padStart(4, "0")}`,
         emailVerified: Math.random() > 0.2 ? randomDate(30) : undefined,
       });
     }
 
-    const testUsers = await db.insert(users).values(usersList).returning();
+    const testUsers = await db.insert(users).values(usersList as any[]).returning();
     logger.info(`✅ Created ${testUsers.length} users`);
 
     logger.info("Creating disaster reports...");
