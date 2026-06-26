@@ -3,6 +3,7 @@ import { storage } from "../db/storage";
 import { isAuthenticated } from "../middleware/jwtAuth";
 import { AICrisisGuidanceService } from "../modules/ai/crisis-guidance.controller";
 import { aiRequestLimiter } from "../middleware/rateLimiting";
+import { logger } from "../utils/logger";
 
 // Placeholder for broadcast function - will be injected via index.ts
 let broadcastToAll: (message: any) => void = () => {};
@@ -84,7 +85,7 @@ export function registerAIRoutes(app: Express) {
         });
       }
     } catch (error: any) {
-      console.error("Error getting AI assistance:", error);
+      logger.error("Error getting AI assistance", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to get AI assistance" });
     }
   });

@@ -3,16 +3,22 @@ import { storage } from "../db/storage";
 import { isAuthenticated } from "../middleware/jwtAuth";
 import { authLimiter } from "../middleware/rateLimiting";
 import { AuditLogger } from "../middleware/auditLog";
+import { logger } from "../utils/logger";
 
 export function registerAuthRoutes(app: Express) {
-  // Get current authenticated user
+  // Get current authenticated user (legacy endpoint — /api/auth/me is canonical)
   app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.userId;
       const user = await storage.getUser(userId);
-      res.json(user);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      // Never expose password hash or raw refresh token
+      const { password: _, refreshToken: __, ...userWithoutSensitiveFields } = user;
+      res.json(userWithoutSensitiveFields);
     } catch (error) {
-      console.error("Error fetching user:", error);
+      logger.error("Error fetching user", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
@@ -38,7 +44,7 @@ export function registerAuthRoutes(app: Express) {
       const users = await storage.getAssignableUsers();
       res.json(users);
     } catch (error) {
-      console.error("Error fetching assignable users:", error);
+      logger.error("Error fetching assignable users", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch assignable users" });
     }
   });
@@ -64,7 +70,7 @@ export function registerAuthRoutes(app: Express) {
       const users = await storage.getAllUsers();
       res.json(users);
     } catch (error) {
-      console.error("Error fetching all users:", error);
+      logger.error("Error fetching all users", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch all users" });
     }
   });
@@ -76,10 +82,10 @@ export function registerAuthRoutes(app: Express) {
       const { userId } = req.params;
       const { role } = req.body;
       
-      // Validate role
-      const validRoles = ["citizen", "volunteer", "ngo", "admin"];
+      // Validate role — must match the full set recognised by the system
+      const validRoles = ["citizen", "volunteer", "ngo", "admin", "government", "authority", "super_admin"];
       if (!validRoles.includes(role)) {
-        return res.status(400).json({ message: "Invalid role" });
+        return res.status(400).json({ message: "Invalid role", validRoles });
       }
       
       // Get current user
@@ -88,10 +94,19 @@ export function registerAuthRoutes(app: Express) {
         return res.status(404).json({ message: "Current user not found" });
       }
       
-      // Only admins can update other users' roles
-      if (currentUser.role !== "admin") {
+      // Only super_admin, authority, or admin can update other users' roles
+      const adminRoles = ["admin", "authority", "super_admin"];
+      if (!adminRoles.includes(currentUser.role || "")) {
         return res.status(403).json({ 
           message: "Forbidden: Only admins can update user roles" 
+        });
+      }
+
+      // Only super_admin can assign authority/super_admin
+      const elevatedRoles = ["authority", "super_admin"];
+      if (elevatedRoles.includes(role) && currentUser.role !== "super_admin") {
+        return res.status(403).json({
+          message: "Forbidden: Only super_admin can assign authority or super_admin roles"
         });
       }
 
@@ -115,7 +130,7 @@ export function registerAuthRoutes(app: Express) {
       
       res.json(updatedUser);
     } catch (error) {
-      console.error("Error updating user role:", error);
+      logger.error("Error updating user role", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to update user role" });
     }
   });
@@ -126,10 +141,10 @@ export function registerAuthRoutes(app: Express) {
       const userId = req.user.userId;
       const { role } = req.body;
       
-      // Validate role
-      const validRoles = ["citizen", "volunteer", "ngo", "admin"];
+      // Validate role — must match the full set recognised by the system
+      const validRoles = ["citizen", "volunteer", "ngo", "admin", "government", "authority", "super_admin"];
       if (!validRoles.includes(role)) {
-        return res.status(400).json({ message: "Invalid role" });
+        return res.status(400).json({ message: "Invalid role", validRoles });
       }
       
       // Get current user
@@ -138,18 +153,16 @@ export function registerAuthRoutes(app: Express) {
         return res.status(404).json({ message: "User not found" });
       }
       
-      // Security: Only admins can assign admin role
-      // Also, admins cannot demote themselves to prevent lockout
-      if (role === "admin") {
-        if (currentUser.role !== "admin") {
-          return res.status(403).json({ 
-            message: "Forbidden: Only admins can assign admin role" 
-          });
-        }
+      // Security: Only admins/authority/super_admin can assign elevated roles
+      const adminRoles = ["admin", "authority", "super_admin"];
+      if (adminRoles.includes(role) && !adminRoles.includes(currentUser.role || "")) {
+        return res.status(403).json({ 
+          message: "Forbidden: Only admins can assign elevated roles" 
+        });
       }
       
       // Prevent admins from accidentally demoting themselves
-      if (currentUser.role === "admin" && role !== "admin") {
+      if (adminRoles.includes(currentUser.role || "") && !adminRoles.includes(role)) {
         return res.status(403).json({ 
           message: "Forbidden: Admins cannot demote themselves. Contact another admin." 
         });
@@ -162,7 +175,7 @@ export function registerAuthRoutes(app: Express) {
       
       res.json(user);
     } catch (error) {
-      console.error("Error updating role:", error);
+      logger.error("Error updating role", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to update role" });
     }
   });
@@ -174,7 +187,7 @@ export function registerAuthRoutes(app: Express) {
       const verifications = await storage.getUserVerifications(userId);
       res.json(verifications);
     } catch (error) {
-      console.error("Error fetching verifications:", error);
+      logger.error("Error fetching verifications", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch verifications" });
     }
   });
@@ -192,7 +205,7 @@ export function registerAuthRoutes(app: Express) {
       
       res.json(reputation);
     } catch (error) {
-      console.error("Error fetching user reputation:", error);
+      logger.error("Error fetching user reputation", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch user reputation" });
     }
   });
@@ -210,7 +223,7 @@ export function registerAuthRoutes(app: Express) {
       
       res.json(reputation);
     } catch (error) {
-      console.error("Error fetching user reputation:", error);
+      logger.error("Error fetching user reputation", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch user reputation" });
     }
   });

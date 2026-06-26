@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger";
 import type { Express } from "express";
 import { storage } from "../db/storage";
 import { isAuthenticated } from "../middleware/jwtAuth";
@@ -17,7 +18,7 @@ export function registerAnalyticsRoutes(app: Express) {
       const events = await storage.getAnalyticsEvents(limit);
       res.json(events);
     } catch (error) {
-      console.error("Error fetching analytics events:", error);
+      logger.error("Error fetching analytics events", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch analytics events" });
     }
   });
@@ -53,7 +54,7 @@ export function registerAnalyticsRoutes(app: Express) {
 
       res.json(summary);
     } catch (error) {
-      console.error("Error fetching analytics summary:", error);
+      logger.error("Error fetching analytics summary", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch analytics summary" });
     }
   });
@@ -78,7 +79,7 @@ export function registerAnalyticsRoutes(app: Express) {
 
       res.json(frequency);
     } catch (error) {
-      console.error("Error fetching disaster frequency:", error);
+      logger.error("Error fetching disaster frequency", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch disaster frequency" });
     }
   });
@@ -109,7 +110,7 @@ export function registerAnalyticsRoutes(app: Express) {
 
       res.json(geographicData);
     } catch (error) {
-      console.error("Error fetching geographic impact:", error);
+      logger.error("Error fetching geographic impact", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch geographic impact" });
     }
   });

@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger";
 import type { Express } from "express";
 import { storage } from "../db/storage";
 import { isAuthenticated } from "../middleware/jwtAuth";
@@ -19,7 +20,7 @@ export function registerAidRoutes(app: Express) {
       const offers = await storage.getAllAidOffers();
       res.json(offers);
     } catch (error) {
-      console.error("Error fetching aid offers:", error);
+      logger.error("Error fetching aid offers", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch aid offers" });
     }
   });
@@ -31,7 +32,7 @@ export function registerAidRoutes(app: Express) {
       const offers = await storage.getAidOffersByUser(userId);
       res.json(offers);
     } catch (error) {
-      console.error("Error fetching user aid offers:", error);
+      logger.error("Error fetching user aid offers", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch user aid offers" });
     }
   });
@@ -45,7 +46,7 @@ export function registerAidRoutes(app: Express) {
       }
       res.json(offer);
     } catch (error) {
-      console.error("Error fetching aid offer:", error);
+      logger.error("Error fetching aid offer", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch aid offer" });
     }
   });
@@ -64,7 +65,7 @@ export function registerAidRoutes(app: Express) {
       const offers = await storage.getAidOffersByUser(requestedUserId);
       res.json(offers);
     } catch (error) {
-      console.error("Error fetching user aid offers:", error);
+      logger.error("Error fetching user aid offers", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch user aid offers" });
     }
   });
@@ -89,7 +90,7 @@ export function registerAidRoutes(app: Express) {
         const validationError = fromZodError(error);
         return res.status(400).json({ message: validationError.message });
       }
-      console.error("Error creating aid offer:", error);
+      logger.error("Error creating aid offer", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to create aid offer" });
     }
   });
@@ -112,7 +113,7 @@ export function registerAidRoutes(app: Express) {
 
       res.json(offer);
     } catch (error) {
-      console.error("Error updating aid offer status:", error);
+      logger.error("Error updating aid offer status", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to update aid offer status" });
     }
   });
@@ -155,7 +156,7 @@ export function registerAidRoutes(app: Express) {
 
       res.json(matchedOffer);
     } catch (error) {
-      console.error("Error committing aid offer:", error);
+      logger.error("Error committing aid offer", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to commit aid offer" });
     }
   });
@@ -189,7 +190,7 @@ export function registerAidRoutes(app: Express) {
 
       res.json(deliveredOffer);
     } catch (error) {
-      console.error("Error marking aid offer as delivered:", error);
+      logger.error("Error marking aid offer as delivered", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to mark aid offer as delivered" });
     }
   });
@@ -214,7 +215,7 @@ export function registerAidRoutes(app: Express) {
       
       res.json(matches);
     } catch (error) {
-      console.error("Error finding matches for aid offer:", error);
+      logger.error("Error finding matches for aid offer", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to find matches" });
     }
   });
@@ -296,7 +297,7 @@ export function registerAidRoutes(app: Express) {
         matches: allMatches,
       });
     } catch (error) {
-      console.error("Error running batch matching:", error);
+      logger.error("Error running batch matching", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to run batch matching" });
     }
   });
@@ -374,7 +375,7 @@ export function registerAidRoutes(app: Express) {
 
       res.json(analytics);
     } catch (error) {
-      console.error("Error fetching matching analytics:", error);
+      logger.error("Error fetching matching analytics", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch matching analytics" });
     }
   });

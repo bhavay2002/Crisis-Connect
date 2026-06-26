@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger";
 import type { Express } from "express";
 import { storage } from "../db/storage";
 import { clusteringService } from "../utils/clustering";
@@ -22,7 +23,7 @@ export function registerClusteringRoutes(app: Express) {
         totalReportsInClusters: clusters.reduce((sum, c) => sum + c.reports.length, 0),
       });
     } catch (error: any) {
-      console.error("Error getting report clusters:", error);
+      logger.error("Error getting report clusters", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to get report clusters" });
     }
   });
@@ -56,7 +57,7 @@ export function registerClusteringRoutes(app: Express) {
         count: similarReports.length,
       });
     } catch (error: any) {
-      console.error("Error finding similar reports:", error);
+      logger.error("Error finding similar reports", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to find similar reports" });
     }
   });
@@ -92,7 +93,7 @@ export function registerClusteringRoutes(app: Express) {
         });
       }
     } catch (error: any) {
-      console.error("Error detecting duplicates:", error);
+      logger.error("Error detecting duplicates", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to detect duplicates" });
     }
   });
@@ -114,7 +115,7 @@ export function registerClusteringRoutes(app: Express) {
 
       res.json(updatedReport);
     } catch (error: any) {
-      console.error("Error linking similar reports:", error);
+      logger.error("Error linking similar reports", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to link similar reports" });
     }
   });
@@ -159,7 +160,7 @@ export function registerClusteringRoutes(app: Express) {
         })),
       });
     } catch (error: any) {
-      console.error("Error running clustering:", error);
+      logger.error("Error running clustering", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to run clustering" });
     }
   });
