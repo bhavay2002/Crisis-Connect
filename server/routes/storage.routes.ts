@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger";
 import type { Express } from "express";
 import { isAuthenticated } from "../middleware/jwtAuth";
 import { ObjectStorageService, ObjectNotFoundError } from "../shared/storage/object-storage";
@@ -19,7 +20,7 @@ export function registerStorageRoutes(app: Express) {
       }
       objectStorageService.downloadObject(objectFile, res);
     } catch (error) {
-      console.error("Error checking object access:", error);
+      logger.error("Error checking object access", error instanceof Error ? error : undefined);
       if (error instanceof ObjectNotFoundError) {
         return res.sendStatus(404);
       }
@@ -59,7 +60,7 @@ export function registerStorageRoutes(app: Express) {
 
       res.status(200).json({ objectPath });
     } catch (error) {
-      console.error("Error setting media ACL:", error);
+      logger.error("Error setting media ACL", error instanceof Error ? error : undefined);
       res.status(500).json({ error: "Internal server error" });
     }
   });

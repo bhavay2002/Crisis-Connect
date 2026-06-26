@@ -3,7 +3,6 @@ import { storage } from "../db/storage";
 import { isAuthenticated } from "../middleware/jwtAuth";
 import { insertDisasterReportSchema, insertVerificationSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
-import { AIValidationService } from "../validators/aiValidation";
 import { 
   reportSubmissionLimiter, 
   verificationLimiter,
@@ -13,6 +12,10 @@ import { AuditLogger } from "../middleware/auditLog";
 import { extractPaginationParams, getPaginationOffsets, createPaginatedResponse } from "../middleware/pagination";
 import { cache, CacheKeys, CacheTTL } from "../utils/cache";
 import { logger } from "../utils/logger";
+import { decisionEngine } from "../modules/decisions/decision-engine.service";
+import { enqueueAIAnalysis } from "../workers/ai-analysis.worker";
+import { eventStore, EVENT_TYPES } from "../modules/events/event-store.service";
+import { recordReportForSpikeDetection } from "../modules/predictions/prediction-scheduler";
 
 // Placeholder for broadcast function - will be injected via index.ts
 let broadcastToAll: (message: any) => void = () => {};
@@ -129,12 +132,13 @@ export function registerReportRoutes(app: Express) {
       const reports = await storage.getDisasterReportsByUser(requestedUserId);
       res.json(reports);
     } catch (error) {
-      console.error("Error fetching user reports:", error);
+      logger.error("Error fetching user reports", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch user reports" });
     }
   });
 
-  // Create new disaster report
+  // Create new disaster report — §21 Async Pipeline
+  // Saves instantly, enqueues AI analysis as background job, returns 202
   app.post("/api/reports", isAuthenticated, reportSubmissionLimiter, async (req: any, res) => {
     try {
       const userId = req.user.userId;
@@ -143,89 +147,132 @@ export function registerReportRoutes(app: Express) {
         userId,
       });
 
-      // Load recent reports once for both AI validation and duplicate detection (performance optimization)
-      const recentReports = await storage.getRecentReports(200);
-      
-      // Run AI validation using recent reports
-      const aiService = new AIValidationService();
-      const aiValidation = await aiService.validateReport(
-        {
-          title: validatedData.title,
-          description: validatedData.description,
-          type: validatedData.type,
-          severity: validatedData.severity,
-          location: validatedData.location,
-          latitude: validatedData.latitude,
-          longitude: validatedData.longitude,
-        },
-        recentReports
-      );
+      // ── Fast DB write — no AI on this thread ──────────────────────────────
+      const report = await storage.createDisasterReport(validatedData);
 
-      // Add AI validation results to the report
-      const reportWithAI = {
-        ...validatedData,
-        aiValidationScore: aiValidation.score,
-        aiValidationNotes: aiValidation.notes,
-      };
-
-      const report = await storage.createDisasterReport(reportWithAI);
-      
-      // Invalidate reports cache when new report is created
+      // Invalidate reports cache
       cache.deletePattern(/^reports:/);
       logger.debug("Invalidated reports cache after creating new report", { reportId: report.id });
-      
-      // Run automatic duplicate detection using the same recent reports
+
+      // Run duplicate detection (fast, in-process — no network calls)
       const { clusteringService } = await import("../utils/clustering");
+      const recentReports = await storage.getRecentReports(200);
       const duplicateCheck = clusteringService.detectDuplicates(report, recentReports);
-      
+
       let finalReport = report;
       if (duplicateCheck.confidence > 0.5) {
         const similarReports = clusteringService.findSimilarReports(report, recentReports);
         const similarIds = similarReports.slice(0, 5).map(s => s.reportId);
-        
+
         if (similarIds.length > 0) {
-          // Update the new report with similar IDs
           finalReport = await storage.updateSimilarReports(report.id, similarIds) || report;
-          
-          // Bidirectionally link: update each similar report to include this new report
           for (const similarId of similarIds) {
             const existingReport = await storage.getDisasterReport(similarId);
             if (existingReport) {
               const updatedSimilarIds = Array.from(new Set([
                 ...(existingReport.similarReportIds || []),
-                report.id
+                report.id,
               ]));
               await storage.updateSimilarReports(similarId, updatedSimilarIds);
             }
           }
         }
       }
-      
+
+      // ── Enqueue AI analysis — decoupled from request thread ───────────────
+      const priority = validatedData.severity === "critical" ? 10
+                     : validatedData.severity === "high"     ? 5
+                     : 0;
+      let jobId: string;
+      try {
+        jobId = await enqueueAIAnalysis(finalReport.id, userId, priority);
+      } catch (queueErr: any) {
+        if (queueErr.name === "QueueSaturatedError") {
+          // §24 Load shedding — queue is saturated, low-priority job rejected
+          logger.warn("[Reports] Load shedding — 503 returned to client", {
+            reportId: finalReport.id,
+            severity: validatedData.severity,
+            priority,
+          });
+          return res.status(503)
+            .set("Retry-After", "5")
+            .json({
+              message: "System under load — please retry shortly",
+              code:    "QUEUE_SATURATED",
+              retryAfterSeconds: 5,
+            });
+        }
+        throw queueErr;
+      }
+
+      logger.info("Report accepted — AI analysis enqueued", {
+        reportId: finalReport.id,
+        jobId,
+        severity: validatedData.severity,
+        priority,
+      });
+
+      // Fire Decision Engine in background (uses placeholder score until AI completes)
+      decisionEngine.generateDecision({
+        reportId: finalReport.id,
+        reportTitle: finalReport.title,
+        aiScore: 50, // placeholder; AI_ANALYSIS_COMPLETE WS event will update UI
+        severity: (finalReport.severity as "low" | "medium" | "high" | "critical") ?? "medium",
+      }).catch((err) => logger.error("DecisionEngine background call failed", err));
+
+      // §26 — Persist report.created to durable event store
+      eventStore.append({
+        eventType:  EVENT_TYPES.REPORT_CREATED,
+        entityId:   finalReport.id,
+        entityType: "report",
+        payload: {
+          reportId:  finalReport.id,
+          type:      finalReport.type,
+          severity:  finalReport.severity,
+          location:  finalReport.location,
+          userId:    userId ?? null,
+          createdAt: new Date().toISOString(),
+        },
+      }).catch(() => {});
+
+      // §28 — Signal spike detection: fire-and-forget, non-blocking
+      try {
+        const zone = finalReport.location ?? "unknown";
+        recordReportForSpikeDetection(zone);
+      } catch {
+        // never block the request
+      }
+
       // Broadcast new report to all connected WebSocket clients
-      broadcastToAll({ 
-        type: "new_report", 
+      broadcastToAll({
+        type: "new_report",
         data: finalReport,
-        duplicateInfo: duplicateCheck.isDuplicate ? {
+        aiStatus: "pending",
+        duplicateInfo: duplicateCheck.confidence > 0.5 ? {
           isDuplicate: true,
           confidence: duplicateCheck.confidence,
           reasons: duplicateCheck.reasons,
-        } : undefined
+        } : undefined,
       });
-      
-      res.status(201).json({
+
+      // ── 202 Accepted — client knows AI is processing async ───────────────
+      res.status(202).json({
         ...finalReport,
+        aiStatus:  "pending",
+        aiJobId:   jobId,
+        message:   "Report received. AI analysis running in the background.",
         duplicateCheck: {
           hasSimilar: duplicateCheck.confidence > 0.5,
           confidence: duplicateCheck.confidence,
-          reasons: duplicateCheck.reasons,
-        }
+          reasons:    duplicateCheck.reasons,
+        },
       });
     } catch (error: any) {
       if (error.name === "ZodError") {
         const validationError = fromZodError(error);
         return res.status(400).json({ message: validationError.message });
       }
-      console.error("Error creating report:", error);
+      logger.error("Error creating report", error);
       res.status(500).json({ message: "Failed to create report" });
     }
   });
@@ -253,7 +300,7 @@ export function registerReportRoutes(app: Express) {
 
       res.json(report);
     } catch (error) {
-      console.error("Error updating report status:", error);
+      logger.error("Error updating report status", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to update report status" });
     }
   });
@@ -299,7 +346,7 @@ export function registerReportRoutes(app: Express) {
         const validationError = fromZodError(error);
         return res.status(400).json({ message: validationError.message });
       }
-      console.error("Error creating verification:", error);
+      logger.error("Error creating verification", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to create verification" });
     }
   });
@@ -310,7 +357,7 @@ export function registerReportRoutes(app: Express) {
       const count = await storage.getVerificationCountForReport(req.params.reportId);
       res.json({ count });
     } catch (error) {
-      console.error("Error fetching verification count:", error);
+      logger.error("Error fetching verification count", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch verification count" });
     }
   });
@@ -353,7 +400,7 @@ export function registerReportRoutes(app: Express) {
 
       res.json(confirmedReport);
     } catch (error) {
-      console.error("Error confirming report:", error);
+      logger.error("Error confirming report", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to confirm report" });
     }
   });
@@ -396,7 +443,7 @@ export function registerReportRoutes(app: Express) {
 
       res.json(unconfirmedReport);
     } catch (error) {
-      console.error("Error unconfirming report:", error);
+      logger.error("Error unconfirming report", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to unconfirm report" });
     }
   });
@@ -441,7 +488,7 @@ export function registerReportRoutes(app: Express) {
 
       res.json(report);
     } catch (error) {
-      console.error("Error flagging report:", error);
+      logger.error("Error flagging report", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to flag report" });
     }
   });
@@ -479,7 +526,7 @@ export function registerReportRoutes(app: Express) {
 
       res.json(report);
     } catch (error) {
-      console.error("Error unflagging report:", error);
+      logger.error("Error unflagging report", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to unflag report" });
     }
   });
@@ -516,7 +563,7 @@ export function registerReportRoutes(app: Express) {
 
       res.json(report);
     } catch (error) {
-      console.error("Error adding admin notes:", error);
+      logger.error("Error adding admin notes", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to add admin notes" });
     }
   });
@@ -571,7 +618,7 @@ export function registerReportRoutes(app: Express) {
 
       res.json(report);
     } catch (error) {
-      console.error("Error assigning report:", error);
+      logger.error("Error assigning report", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to assign report" });
     }
   });
@@ -609,7 +656,7 @@ export function registerReportRoutes(app: Express) {
 
       res.json(report);
     } catch (error) {
-      console.error("Error unassigning report:", error);
+      logger.error("Error unassigning report", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to unassign report" });
     }
   });
@@ -642,7 +689,7 @@ export function registerReportRoutes(app: Express) {
       const reports = await storage.getReportsByStatus(status as "reported" | "verified" | "responding" | "resolved");
       res.json(reports);
     } catch (error) {
-      console.error("Error fetching filtered reports:", error);
+      logger.error("Error fetching filtered reports", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch filtered reports" });
     }
   });
@@ -668,7 +715,7 @@ export function registerReportRoutes(app: Express) {
       const reports = await storage.getFlaggedReports();
       res.json(reports);
     } catch (error) {
-      console.error("Error fetching flagged reports:", error);
+      logger.error("Error fetching flagged reports", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch flagged reports" });
     }
   });
@@ -694,7 +741,7 @@ export function registerReportRoutes(app: Express) {
       const reports = await storage.getPrioritizedReports();
       res.json(reports);
     } catch (error) {
-      console.error("Error fetching prioritized reports:", error);
+      logger.error("Error fetching prioritized reports", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch prioritized reports" });
     }
   });
@@ -731,7 +778,7 @@ export function registerReportRoutes(app: Express) {
 
       res.json(report);
     } catch (error) {
-      console.error("Error updating report priority:", error);
+      logger.error("Error updating report priority", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to update report priority" });
     }
   });

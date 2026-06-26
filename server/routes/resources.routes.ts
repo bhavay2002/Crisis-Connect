@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger";
 import type { Express } from "express";
 import { storage } from "../db/storage";
 import { isAuthenticated } from "../middleware/jwtAuth";
@@ -21,7 +22,7 @@ export function registerResourceRoutes(app: Express) {
       const requests = await storage.getAllResourceRequests();
       res.json(requests);
     } catch (error) {
-      console.error("Error fetching resource requests:", error);
+      logger.error("Error fetching resource requests", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch resource requests" });
     }
   });
@@ -33,7 +34,7 @@ export function registerResourceRoutes(app: Express) {
       const requests = await storage.getResourceRequestsByUser(userId);
       res.json(requests);
     } catch (error) {
-      console.error("Error fetching user resource requests:", error);
+      logger.error("Error fetching user resource requests", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch user resource requests" });
     }
   });
@@ -47,7 +48,7 @@ export function registerResourceRoutes(app: Express) {
       }
       res.json(request);
     } catch (error) {
-      console.error("Error fetching resource request:", error);
+      logger.error("Error fetching resource request", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch resource request" });
     }
   });
@@ -66,7 +67,7 @@ export function registerResourceRoutes(app: Express) {
       const requests = await storage.getResourceRequestsByUser(requestedUserId);
       res.json(requests);
     } catch (error) {
-      console.error("Error fetching user resource requests:", error);
+      logger.error("Error fetching user resource requests", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch user resource requests" });
     }
   });
@@ -91,7 +92,7 @@ export function registerResourceRoutes(app: Express) {
         const validationError = fromZodError(error);
         return res.status(400).json({ message: validationError.message });
       }
-      console.error("Error creating resource request:", error);
+      logger.error("Error creating resource request", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to create resource request" });
     }
   });
@@ -114,7 +115,7 @@ export function registerResourceRoutes(app: Express) {
 
       res.json(request);
     } catch (error) {
-      console.error("Error updating resource request status:", error);
+      logger.error("Error updating resource request status", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to update resource request status" });
     }
   });
@@ -144,7 +145,7 @@ export function registerResourceRoutes(app: Express) {
 
       res.json(fulfilledRequest);
     } catch (error) {
-      console.error("Error fulfilling resource request:", error);
+      logger.error("Error fulfilling resource request", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fulfill resource request" });
     }
   });
@@ -169,7 +170,7 @@ export function registerResourceRoutes(app: Express) {
       
       res.json(matches);
     } catch (error) {
-      console.error("Error finding matches for resource request:", error);
+      logger.error("Error finding matches for resource request", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to find matches" });
     }
   });
