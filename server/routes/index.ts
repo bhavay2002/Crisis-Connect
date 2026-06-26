@@ -42,9 +42,47 @@ import { registerClusteringRoutes } from "./clustering.routes";
 import { tasksRouter } from "./tasks.routes";
 import { registerCacheRoutes } from "./cache.routes";
 import { registerExportRoutes } from "./export.routes";
+import { registerAIIntelligenceRoutes } from "./ai-intelligence.routes";
+import { registerGeoIntelligenceRoutes } from "./geo-intelligence.routes";
+import { registerTrustRoutes } from "./trust.routes";
+import { registerBroadcastRoutes, setBroadcastFunction as setBroadcastBroadcast } from "./broadcast.routes";
+import { registerAdvancedAnalyticsRoutes } from "./analytics-advanced.routes";
+import { registerAdminCommandRoutes } from "./admin-command.routes";
+import { registerIoTRoutes, setBroadcastFunction as setIoTBroadcast } from "./iot.routes";
+import { registerDeviceSecurityRoutes } from "./device-security.routes";
+import { registerOrganizationRoutes } from "./organizations.routes";
+import { registerSMSRoutes } from "./sms.routes";
+import { registerComplianceRoutes } from "./compliance.routes";
+import { registerIntegrationRoutes } from "./integration.routes";
+import { registerDeveloperPlatformRoutes } from "./developer-platform.routes";
+import { registerMonitoringRoutes } from "./monitoring.routes";
+import { registerMultimodalRoutes } from "./multimodal.routes";
+import { registerDigitalTwinRoutes } from "./digital-twin.routes";
+import { registerAIOverrideRoutes } from "./ai-override.routes";
+import { registerDecisionRoutes } from "./decisions.routes";
+import { registerDecisionOutcomeRoutes } from "./decision-outcomes.routes";
+import { registerIncidentGraphRoutes } from "./incident-graph.routes";
+import { registerPredictionRoutes } from "./predictions.routes";
+import { registerPolicyEngineRoutes } from "./policy-engine.routes";
+import { registerExecutiveRoutes } from "./executive.routes";
+import { registerGovernanceAdminRoutes } from "./governance-admin.routes";
+import { registerApiAnalyticsRoutes } from "./api-analytics.routes";
+import { registerDataFusionRoutes } from "./data-fusion.routes";
+import { registerResponderRoutes } from "./responders.routes";
+import { deviceFingerprintService } from "../modules/security/device-fingerprint.service";
+import { eventBus } from "../modules/events/event-bus";
 import { wsRateLimiter } from "../middleware/wsRateLimiting";
 import { config } from "../config";
 import { encryptWebSocketMessage, shouldEncryptMessage, type SecureWebSocketMessage } from "../shared/websocket/ws-encryption";
+import { pubSub, CHANNELS } from "../utils/pubsub";
+import { registerAIAnalysisWorker } from "../workers/ai-analysis.worker";
+import { registerPipelineRoutes, setWsStatsProviders } from "./pipeline.routes";
+import { registerAdaptiveFusionRoutes } from "./adaptive-fusion.routes";
+import { registerServiceHealthRoutes } from "./service-health.routes";
+import { adaptiveWeights } from "../modules/fusion/adaptive-weights.service";
+import { registerEventStoreRoutes } from "./event-store.routes";
+import { registerPredictionSchedulerRoutes } from "./predictions-scheduler.routes";
+import { startPredictionScheduler } from "../modules/predictions/prediction-scheduler";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server
@@ -247,6 +285,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // §21 — Wire pub/sub AI_ANALYSIS_COMPLETE → WebSocket broadcast
+  pubSub.subscribe(CHANNELS.AI_ANALYSIS_COMPLETE, (data: unknown) => {
+    broadcastToAll({ type: "AI_ANALYSIS_COMPLETE", ...(data as object) });
+  });
+  pubSub.subscribe(CHANNELS.AI_ANALYSIS_FAILED, (data: unknown) => {
+    broadcastToAll({ type: "AI_ANALYSIS_FAILED", ...(data as object) });
+  });
+
+  // §21 — Wire pub/sub room-based broadcast (Redis-ready)
+  pubSub.subscribe(CHANNELS.WS_BROADCAST_ALL, (data: unknown) => {
+    broadcastToAll(data);
+  });
+
+  // §21 — Register AI analysis background worker
+  registerAIAnalysisWorker();
+
+  // §21 — Expose WS stats to pipeline routes
+  setWsStatsProviders(
+    () => wss.clients.size,
+    () => 0  // room tracking not implemented at WS layer yet; pubSub channels cover it
+  );
+
   // Inject broadcast function into route modules
   setReportBroadcast(broadcastToAll);
   setResourceBroadcast(broadcastToAll);
@@ -254,6 +314,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setSOSBroadcast(broadcastToAll);
   setChatBroadcast(broadcastToAll);
   setAIBroadcast(broadcastToAll);
+  setBroadcastBroadcast(broadcastToAll);
+  setIoTBroadcast(broadcastToAll);
 
   // API Version Information Endpoint
   app.get("/api", (req, res) => {
@@ -315,7 +377,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerClusteringRoutes(app);
   registerCacheRoutes(app);
   registerExportRoutes(app);
-  
+  registerAIIntelligenceRoutes(app);
+  registerGeoIntelligenceRoutes(app);
+  registerTrustRoutes(app);
+  registerBroadcastRoutes(app);
+  registerAdvancedAnalyticsRoutes(app);
+  registerAdminCommandRoutes(app);
+  registerIoTRoutes(app);
+  registerDeviceSecurityRoutes(app);
+  registerOrganizationRoutes(app);
+  registerSMSRoutes(app);
+  registerComplianceRoutes(app);
+  registerIntegrationRoutes(app);
+  registerDeveloperPlatformRoutes(app);
+  registerMonitoringRoutes(app);
+  registerMultimodalRoutes(app);
+  registerDigitalTwinRoutes(app);
+  registerAIOverrideRoutes(app);
+  registerDecisionRoutes(app);
+  registerDecisionOutcomeRoutes(app);
+  registerIncidentGraphRoutes(app);
+  registerPredictionRoutes(app);
+  registerPolicyEngineRoutes(app);
+  registerDataFusionRoutes(app);
+  registerResponderRoutes(app);
+  registerExecutiveRoutes(app);
+  registerGovernanceAdminRoutes(app);
+  registerApiAnalyticsRoutes(app);
+  registerPipelineRoutes(app);
+  registerAdaptiveFusionRoutes(app);
+  registerServiceHealthRoutes(app);
+  registerEventStoreRoutes(app);
+  registerPredictionSchedulerRoutes(app);
+
+  // §22 — Initialize adaptive weights model on startup
+  adaptiveWeights.initialize().catch((err) => {
+    logger.warn("[AdaptiveWeights] Startup init failed — using static weights", { err: String(err) });
+  });
+
+  // §28 — Start periodic prediction scheduler (every 10 min + spike-triggered)
+  startPredictionScheduler();
+
+  // Event bus: wire cross-service listeners
+  eventBus.subscribe("CRISIS_CREATED", ({ type: incidentType, ...rest }) => {
+    broadcastToAll({ type: "NEW_CRISIS", incidentType, ...rest });
+  });
+  eventBus.subscribe("CRISIS_UPDATED", (payload) => {
+    broadcastToAll({ type: "CRISIS_UPDATED", ...payload });
+  });
+  eventBus.subscribe("SOS_ACTIVATED", (payload) => {
+    broadcastToAll({ type: "SOS_ACTIVATED", ...payload });
+  });
+  eventBus.subscribe("ALERT_BROADCAST", (payload) => {
+    broadcastToAll({ type: "ALERT_BROADCAST", ...payload });
+  });
+
+  // §26 — Broadcast durable events to WebSocket in real-time
+  pubSub.subscribe("event:*", (envelope: any) => {
+    broadcastToAll({ type: "DOMAIN_EVENT", event: envelope });
+  });
+
   // Register tasks routes
   app.use("/api/tasks", tasksRouter);
 

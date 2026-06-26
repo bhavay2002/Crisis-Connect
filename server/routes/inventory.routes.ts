@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger";
 import type { Express } from "express";
 import { storage } from "../db/storage";
 import { isAuthenticated } from "../middleware/jwtAuth";
@@ -18,7 +19,7 @@ export function registerInventoryRoutes(app: Express) {
       const items = await storage.getAllInventoryItems();
       res.json(items);
     } catch (error) {
-      console.error("Error fetching inventory items:", error);
+      logger.error("Error fetching inventory items", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch inventory items" });
     }
   });
@@ -36,7 +37,7 @@ export function registerInventoryRoutes(app: Express) {
       const items = await storage.getLowStockItems();
       res.json(items);
     } catch (error) {
-      console.error("Error fetching low stock items:", error);
+      logger.error("Error fetching low stock items", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch low stock items" });
     }
   });
@@ -57,7 +58,7 @@ export function registerInventoryRoutes(app: Express) {
       }
       res.json(item);
     } catch (error) {
-      console.error("Error fetching inventory item:", error);
+      logger.error("Error fetching inventory item", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to fetch inventory item" });
     }
   });
@@ -84,7 +85,7 @@ export function registerInventoryRoutes(app: Express) {
       });
       res.json(item);
     } catch (error) {
-      console.error("Error creating inventory item:", error);
+      logger.error("Error creating inventory item", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to create inventory item" });
     }
   });
@@ -110,7 +111,7 @@ export function registerInventoryRoutes(app: Express) {
       }
       res.json(item);
     } catch (error) {
-      console.error("Error updating inventory quantity:", error);
+      logger.error("Error updating inventory quantity", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to update inventory quantity" });
     }
   });
@@ -128,7 +129,7 @@ export function registerInventoryRoutes(app: Express) {
       await storage.deleteInventoryItem(req.params.id);
       res.json({ message: "Inventory item deleted successfully" });
     } catch (error) {
-      console.error("Error deleting inventory item:", error);
+      logger.error("Error deleting inventory item", error instanceof Error ? error : undefined);
       res.status(500).json({ message: "Failed to delete inventory item" });
     }
   });
