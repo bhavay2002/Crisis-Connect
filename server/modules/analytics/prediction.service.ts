@@ -1,3 +1,4 @@
+import { logger } from "../../utils/logger";
 import { db } from "../../db/db";
 import { disasterReports, disasterPredictions } from "@shared/schema";
 import { sql } from "drizzle-orm";
@@ -91,7 +92,7 @@ export async function analyzeHistoricalPatterns(
       .sort((a, b) => b.frequency - a.frequency)
       .slice(0, 20);
   } catch (error) {
-    console.error('Error analyzing historical patterns:', error);
+    logger.error('Error analyzing historical patterns:', error instanceof Error ? error : undefined);
     return [];
   }
 }
@@ -103,7 +104,7 @@ export async function fetchWeatherData(
   apiKey?: string
 ): Promise<WeatherData | null> {
   if (!apiKey) {
-    console.warn('OpenWeather API key not provided, using mock data');
+    logger.warn('OpenWeather API key not provided, using mock data');
     return {
       temperature: 25,
       humidity: 60,
@@ -142,7 +143,7 @@ export async function fetchWeatherData(
       })),
     };
   } catch (error) {
-    console.error('Error fetching weather data:', error);
+    logger.error('Error fetching weather data:', error instanceof Error ? error : undefined);
     return null;
   }
 }
@@ -177,7 +178,7 @@ export async function fetchSeismicData(
       ),
     })).slice(0, 10);
   } catch (error) {
-    console.error('Error fetching seismic data:', error);
+    logger.error('Error fetching seismic data:', error instanceof Error ? error : undefined);
     return [];
   }
 }
