@@ -32,6 +32,8 @@ export const userRoleEnum = pgEnum("user_role", [
   "ngo",
   "admin",
   "government",
+  "authority",
+  "super_admin",
 ]);
 
 // Users table
@@ -442,11 +444,9 @@ export const sosStatusEnum = pgEnum("sos_status", [
 
 export const sosAlerts = pgTable("sos_alerts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id")
-    .notNull()
-    .references(() => users.id),
-  emergencyType: disasterTypeEnum("emergency_type").notNull(),
-  severity: severityEnum("severity").notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  emergencyType: disasterTypeEnum("emergency_type").notNull().default("other"),
+  severity: severityEnum("severity").notNull().default("high"),
   status: sosStatusEnum("status").notNull().default("active"),
   location: text("location").notNull(),
   latitude: text("latitude"),
@@ -545,6 +545,11 @@ export const messages = pgTable("messages", {
   encryptionIv: varchar("encryption_iv", { length: 32 }),
   encryptionTag: varchar("encryption_tag", { length: 32 }),
   isEncrypted: boolean("is_encrypted").default(false).notNull(),
+  status: text("status").notNull().default("sent"),
+  isPinned: boolean("is_pinned").default(false).notNull(),
+  isPriority: boolean("is_priority").default(false).notNull(),
+  deliveredAt: timestamp("delivered_at"),
+  readAt: timestamp("read_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -674,3 +679,535 @@ export const insertDisasterPredictionSchema = createInsertSchema(disasterPredict
 
 export type InsertDisasterPrediction = z.infer<typeof insertDisasterPredictionSchema>;
 export type DisasterPrediction = typeof disasterPredictions.$inferSelect;
+
+// ─── Production Elite: Incident Aggregation ───────────────────────────────────
+
+export const incidentStatusEnum = pgEnum("incident_status", [
+  "active",
+  "merged",
+  "resolved",
+  "closed",
+]);
+
+export const incidents = pgTable("incidents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  disasterType: disasterTypeEnum("disaster_type").notNull(),
+  severity: severityEnum("severity").notNull(),
+  status: incidentStatusEnum("status").notNull().default("active"),
+  centroidLat: text("centroid_lat"),
+  centroidLon: text("centroid_lon"),
+  location: text("location").notNull(),
+  reportCount: integer("report_count").notNull().default(1),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_incidents_status").on(table.status),
+  index("idx_incidents_type").on(table.disasterType),
+  index("idx_incidents_created_at").on(table.createdAt),
+]);
+
+export type Incident = typeof incidents.$inferSelect;
+export type InsertIncident = typeof incidents.$inferInsert;
+
+export const incidentReports = pgTable("incident_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  incidentId: varchar("incident_id")
+    .notNull()
+    .references(() => incidents.id),
+  reportId: varchar("report_id")
+    .notNull()
+    .references(() => disasterReports.id),
+  mergedAt: timestamp("merged_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_incident_reports_incident_id").on(table.incidentId),
+  index("idx_incident_reports_report_id").on(table.reportId),
+]);
+
+export type IncidentReport = typeof incidentReports.$inferSelect;
+
+// ─── Device Fingerprinting (Spec §6.2) ───────────────────────────────────────
+
+export const deviceFingerprints = pgTable("device_fingerprints", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  ipAddress: varchar("ip_address", { length: 45 }).notNull(),
+  userAgent: text("user_agent"),
+  fingerprintHash: varchar("fingerprint_hash", { length: 64 }).notNull(),
+  riskScore: integer("risk_score").default(0).notNull(),
+  requestCount: integer("request_count").default(1).notNull(),
+  isFlagged: boolean("is_flagged").default(false).notNull(),
+  flagReason: text("flag_reason"),
+  firstSeenAt: timestamp("first_seen_at").defaultNow().notNull(),
+  lastSeenAt: timestamp("last_seen_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_device_fp_user_id").on(table.userId),
+  index("idx_device_fp_hash").on(table.fingerprintHash),
+  index("idx_device_fp_ip").on(table.ipAddress),
+]);
+
+export type DeviceFingerprint = typeof deviceFingerprints.$inferSelect;
+
+// ─── §9: Organizations & Multi-Tenancy ───────────────────────────────────────
+
+export const orgTypeEnum = pgEnum("org_type", ["ngo", "government", "private", "military", "un_agency"]);
+
+export const organizations = pgTable("organizations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  type: orgTypeEnum("type").notNull().default("ngo"),
+  description: text("description"),
+  contactEmail: varchar("contact_email"),
+  contactPhone: varchar("contact_phone"),
+  website: varchar("website"),
+  region: varchar("region"),
+  isVerified: boolean("is_verified").default(false).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_orgs_type").on(table.type),
+  index("idx_orgs_region").on(table.region),
+]);
+
+export const orgMemberRoleEnum = pgEnum("org_member_role", ["owner", "admin", "member", "observer"]);
+
+export const organizationMembers = pgTable("organization_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  role: orgMemberRoleEnum("role").default("member").notNull(),
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("idx_org_member_unique").on(table.orgId, table.userId),
+  index("idx_org_member_org").on(table.orgId),
+  index("idx_org_member_user").on(table.userId),
+]);
+
+export type Organization = typeof organizations.$inferSelect;
+export type InsertOrganization = typeof organizations.$inferInsert;
+export type OrganizationMember = typeof organizationMembers.$inferSelect;
+
+// ─── §12: GDPR / Compliance ───────────────────────────────────────────────────
+
+export const consentTypeEnum = pgEnum("consent_type", [
+  "data_processing",
+  "location_tracking",
+  "analytics",
+  "marketing",
+  "third_party_sharing",
+]);
+
+export const userConsents = pgTable("user_consents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  consentType: consentTypeEnum("consent_type").notNull(),
+  granted: boolean("granted").notNull(),
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  grantedAt: timestamp("granted_at").defaultNow().notNull(),
+  revokedAt: timestamp("revoked_at"),
+  version: varchar("version").default("1.0").notNull(),
+}, (table) => [
+  index("idx_consents_user").on(table.userId),
+  index("idx_consents_type").on(table.consentType),
+]);
+
+export type UserConsent = typeof userConsents.$inferSelect;
+export type InsertUserConsent = typeof userConsents.$inferInsert;
+
+// ─── Production Elite: State Transition Audit Log ────────────────────────────
+
+export const incidentLogs = pgTable("incident_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  entityId: varchar("entity_id").notNull(),
+  entityType: varchar("entity_type").notNull().default("report"),
+  fromState: text("from_state").notNull(),
+  toState: text("to_state").notNull(),
+  triggeredBy: varchar("triggered_by"),
+  reason: text("reason"),
+  metadata: jsonb("metadata"),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+}, (table) => [
+  index("idx_incident_logs_entity_id").on(table.entityId),
+  index("idx_incident_logs_timestamp").on(table.timestamp),
+]);
+
+// ─── §13: Integration Ecosystem ───────────────────────────────────────────────
+
+export const weatherAlertLevelEnum = pgEnum("weather_alert_level", ["none", "watch", "warning", "emergency"]);
+
+export const weatherData = pgTable("weather_data", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  region: varchar("region").notNull(),
+  latitude: text("latitude").notNull(),
+  longitude: text("longitude").notNull(),
+  temperature: text("temperature"),
+  rainfall: text("rainfall"),
+  windSpeed: text("wind_speed"),
+  humidity: text("humidity"),
+  weatherCode: integer("weather_code"),
+  alertLevel: weatherAlertLevelEnum("alert_level").default("none").notNull(),
+  riskScore: integer("risk_score").default(0).notNull(),
+  rawData: jsonb("raw_data"),
+  fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_weather_region").on(table.region),
+  index("idx_weather_fetched").on(table.fetchedAt),
+]);
+
+export type WeatherData = typeof weatherData.$inferSelect;
+export type InsertWeatherData = typeof weatherData.$inferInsert;
+
+// ─── §14: Developer Platform ──────────────────────────────────────────────────
+
+export const apiKeyTierEnum = pgEnum("api_key_tier", ["free", "paid", "enterprise"]);
+
+export const apiKeys = pgTable("api_keys", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: varchar("name").notNull(),
+  keyHash: varchar("key_hash").notNull(),
+  keyPrefix: varchar("key_prefix", { length: 12 }).notNull(),
+  tier: apiKeyTierEnum("tier").default("free").notNull(),
+  dailyLimit: integer("daily_limit").default(100).notNull(),
+  requestCount: integer("request_count").default(0).notNull(),
+  lastUsedAt: timestamp("last_used_at"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"),
+}, (table) => [
+  uniqueIndex("idx_api_keys_hash").on(table.keyHash),
+  index("idx_api_keys_user").on(table.userId),
+]);
+
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type InsertApiKey = typeof apiKeys.$inferInsert;
+
+export const webhookEventEnum = pgEnum("webhook_event", [
+  "crisis.created", "crisis.updated", "crisis.resolved",
+  "sos.created", "sos.resolved", "alert.broadcast",
+]);
+
+export const webhookSubscriptions = pgTable("webhook_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  events: text("events").array().notNull(),
+  secret: varchar("secret").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  failureCount: integer("failure_count").default(0).notNull(),
+  lastDeliveredAt: timestamp("last_delivered_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_webhooks_user").on(table.userId),
+]);
+
+export const webhookDeliveries = pgTable("webhook_deliveries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  subscriptionId: varchar("subscription_id").notNull().references(() => webhookSubscriptions.id, { onDelete: "cascade" }),
+  event: varchar("event").notNull(),
+  payload: jsonb("payload").notNull(),
+  statusCode: integer("status_code"),
+  attempts: integer("attempts").default(1).notNull(),
+  success: boolean("success").default(false).notNull(),
+  error: text("error"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  deliveredAt: timestamp("delivered_at"),
+}, (table) => [
+  index("idx_webhook_deliveries_sub").on(table.subscriptionId),
+]);
+
+export type WebhookSubscription = typeof webhookSubscriptions.$inferSelect;
+export type WebhookDelivery = typeof webhookDeliveries.$inferSelect;
+
+// ─── §17: Advanced Differentiators ────────────────────────────────────────────
+
+// §17.2 Simulation Engine
+export const simulationStatusEnum = pgEnum("simulation_status", ["pending", "running", "completed", "failed"]);
+export const simulationScenarioEnum = pgEnum("simulation_scenario", ["flood", "earthquake", "storm", "mass_accident", "epidemic", "coordinated_attack", "infrastructure_failure"]);
+
+export const simulationRuns = pgTable("simulation_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scenario: simulationScenarioEnum("scenario").notNull(),
+  location: varchar("location").notNull(),
+  intensity: varchar("intensity").notNull().default("medium"),
+  eventCount: integer("event_count").notNull().default(0),
+  status: simulationStatusEnum("status").default("pending").notNull(),
+  metricsData: jsonb("metrics_data"),
+  injectedEventIds: text("injected_event_ids").array().default(sql`ARRAY[]::text[]`),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  initiatedBy: varchar("initiated_by").references(() => users.id),
+}, (table) => [
+  index("idx_simulation_runs_status").on(table.status),
+]);
+
+export type SimulationRun = typeof simulationRuns.$inferSelect;
+
+// §17.3 Digital Twin
+export const cityNodeTypeEnum = pgEnum("city_node_type", ["hospital", "fire_station", "police", "shelter", "road_junction", "bridge", "zone", "landmark"]);
+
+export const cityNodes = pgTable("city_nodes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  cityId: varchar("city_id").notNull().default("default"),
+  name: varchar("name").notNull(),
+  type: cityNodeTypeEnum("type").notNull(),
+  latitude: text("latitude").notNull(),
+  longitude: text("longitude").notNull(),
+  riskScore: integer("risk_score").default(0).notNull(),
+  capacity: integer("capacity"),
+  metadata: jsonb("metadata"),
+  isActive: boolean("is_active").default(true).notNull(),
+}, (table) => [
+  index("idx_city_nodes_city").on(table.cityId),
+  index("idx_city_nodes_type").on(table.type),
+]);
+
+export const cityEdges = pgTable("city_edges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  cityId: varchar("city_id").notNull().default("default"),
+  fromNodeId: varchar("from_node_id").notNull().references(() => cityNodes.id, { onDelete: "cascade" }),
+  toNodeId: varchar("to_node_id").notNull().references(() => cityNodes.id, { onDelete: "cascade" }),
+  distanceKm: text("distance_km").notNull(),
+  travelTimeMinutes: integer("travel_time_minutes").notNull(),
+  roadType: varchar("road_type").default("primary"),
+  congestionFactor: text("congestion_factor").default("1.0"),
+}, (table) => [
+  index("idx_city_edges_from").on(table.fromNodeId),
+  index("idx_city_edges_to").on(table.toNodeId),
+]);
+
+export type CityNode = typeof cityNodes.$inferSelect;
+export type CityEdge = typeof cityEdges.$inferSelect;
+
+// §17.4 AI Decision Override
+export const overrideStatusEnum = pgEnum("override_status", ["pending_review", "approved", "overridden", "auto_approved"]);
+
+export const aiOverrides = pgTable("ai_overrides", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  incidentId: varchar("incident_id").notNull(),
+  incidentType: varchar("incident_type").notNull().default("disaster_report"),
+  originalDecision: jsonb("original_decision").notNull(),
+  overriddenDecision: jsonb("overridden_decision"),
+  aiConfidence: text("ai_confidence").notNull(),
+  aiUrgency: text("ai_urgency"),
+  requiresHumanReview: boolean("requires_human_review").default(false).notNull(),
+  status: overrideStatusEnum("status").default("pending_review").notNull(),
+  overriddenBy: varchar("overridden_by").references(() => users.id),
+  reason: text("reason"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  reviewedAt: timestamp("reviewed_at"),
+}, (table) => [
+  index("idx_ai_overrides_incident").on(table.incidentId),
+  index("idx_ai_overrides_status").on(table.status),
+  index("idx_ai_overrides_created").on(table.createdAt),
+]);
+
+export type AiOverride = typeof aiOverrides.$inferSelect;
+export type InsertAiOverride = typeof aiOverrides.$inferInsert;
+
+// ── Decision Engine Tables (v7.0) ─────────────────────────────────────────────
+
+export const decisionTypeEnum = pgEnum("decision_type", ["DISPATCH", "ESCALATE", "BROADCAST", "PREDEPLOY"]);
+export const decisionStatusEnum = pgEnum("decision_status", ["PENDING", "APPROVED", "EXECUTED", "REJECTED"]);
+
+export const decisions = pgTable("decisions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  incidentId: varchar("incident_id").notNull(),
+  incidentTitle: text("incident_title"),
+  type: decisionTypeEnum("type").notNull(),
+  confidence: integer("confidence").notNull(),
+  severity: severityEnum("severity").notNull(),
+  reason: text("reason").notNull(),
+  contributingSignals: jsonb("contributing_signals").notNull().$type<{
+    aiUrgency: number;
+    locationRisk: number;
+    repetition: number;
+    trust: number;
+  }>(),
+  recommendedActions: jsonb("recommended_actions").$type<Array<{
+    type: string;
+    priority: number;
+    parameters: Record<string, unknown>;
+  }>>(),
+  autoExecutable: boolean("auto_executable").default(false).notNull(),
+  status: decisionStatusEnum("status").default("PENDING").notNull(),
+  executedAt: timestamp("executed_at"),
+  executedBy: varchar("executed_by").references(() => users.id),
+  rejectedBy: varchar("rejected_by").references(() => users.id),
+  rejectedReason: text("rejected_reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_decisions_incident").on(table.incidentId),
+  index("idx_decisions_status").on(table.status),
+  index("idx_decisions_created").on(table.createdAt),
+]);
+
+export const incidentMetrics = pgTable("incident_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  incidentId: varchar("incident_id").notNull().unique(),
+  detectedAt: timestamp("detected_at").notNull(),
+  decisionAt: timestamp("decision_at"),
+  dispatchedAt: timestamp("dispatched_at"),
+  resolvedAt: timestamp("resolved_at"),
+  slaTargetSeconds: integer("sla_target_seconds").default(60),
+}, (table) => [
+  index("idx_incident_metrics_incident").on(table.incidentId),
+]);
+
+export type Decision = typeof decisions.$inferSelect;
+export type InsertDecision = typeof decisions.$inferInsert;
+export type IncidentMetrics = typeof incidentMetrics.$inferSelect;
+
+// ── Policy Engine ─────────────────────────────────────────────────────────────
+export const policyRules = pgTable("policy_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  conditions: jsonb("conditions").notNull().$type<Array<{
+    field: string;
+    operator: "=" | "!=" | ">" | "<" | ">=" | "<=" | "contains" | "in";
+    value: string | number | string[];
+  }>>(),
+  logicalOperator: varchar("logical_operator", { length: 10 }).default("AND").notNull(),
+  actions: jsonb("actions").notNull().$type<Array<{
+    type: string;
+    parameters?: Record<string, unknown>;
+  }>>(),
+  enabled: boolean("enabled").default(true).notNull(),
+  priority: integer("priority").default(0).notNull(),
+  triggerCount: integer("trigger_count").default(0).notNull(),
+  lastTriggeredAt: timestamp("last_triggered_at"),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_policy_rules_enabled").on(table.enabled),
+  index("idx_policy_rules_priority").on(table.priority),
+]);
+
+export const policyRuleLogs = pgTable("policy_rule_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ruleId: varchar("rule_id").references(() => policyRules.id).notNull(),
+  triggeredBy: varchar("triggered_by", { length: 100 }),
+  eventData: jsonb("event_data"),
+  actionsExecuted: jsonb("actions_executed"),
+  result: varchar("result", { length: 20 }).notNull().default("success"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_policy_rule_logs_rule").on(table.ruleId),
+  index("idx_policy_rule_logs_created").on(table.createdAt),
+]);
+
+export type PolicyRule = typeof policyRules.$inferSelect;
+export type InsertPolicyRule = typeof policyRules.$inferInsert;
+export type PolicyRuleLog = typeof policyRuleLogs.$inferSelect;
+
+// ── §22 — Adaptive Signal Fusion: Feature Store ───────────────────────────────
+
+export const signalFeatures = pgTable("signal_features", {
+  id:               varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reportId:         varchar("report_id").notNull(),
+  aiScore:          text("ai_score"),
+  locationRisk:     text("location_risk"),
+  repetitionScore:  text("repetition_score"),
+  userTrust:        text("user_trust"),
+  weatherScore:     text("weather_score"),
+  socialScore:      text("social_score"),
+  fusedScore:       text("fused_score"),
+  modelVersion:     varchar("model_version", { length: 50 }),
+  createdAt:        timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_signal_features_report").on(table.reportId),
+  index("idx_signal_features_created").on(table.createdAt),
+]);
+
+// ── §22 — Outcome Labels (training targets) ────────────────────────────────────
+
+export const signalOutcomes = pgTable("signal_outcomes", {
+  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reportId:        varchar("report_id").notNull().unique(),
+  isRealCrisis:    boolean("is_real_crisis").notNull(),
+  falsePositive:   boolean("false_positive").default(false).notNull(),
+  responseTimeSec: integer("response_time_sec"),
+  labelSource:     varchar("label_source", { length: 40 }).notNull(),
+  labeledBy:       varchar("labeled_by"),
+  createdAt:       timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_signal_outcomes_report").on(table.reportId),
+  index("idx_signal_outcomes_created").on(table.createdAt),
+]);
+
+// ── §22 — Model Weight Versions ────────────────────────────────────────────────
+
+export const modelWeights = pgTable("model_weights", {
+  id:          varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  version:     varchar("version", { length: 50 }).notNull().unique(),
+  weights:     jsonb("weights").notNull(),
+  precision:   text("precision"),
+  recall:      text("recall"),
+  f1Score:     text("f1_score"),
+  sampleCount: integer("sample_count").default(0).notNull(),
+  isActive:    boolean("is_active").default(false).notNull(),
+  isShadow:    boolean("is_shadow").default(false).notNull(),
+  createdAt:   timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_model_weights_active").on(table.isActive),
+  index("idx_model_weights_created").on(table.createdAt),
+]);
+
+// ── §23 — Decision Outcomes (closed-loop learning) ───────────────────────────
+
+export const decisionOutcomes = pgTable("decision_outcomes", {
+  id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  decisionId:      varchar("decision_id").notNull().unique(),
+  incidentId:      varchar("incident_id").notNull(),
+  outcome:         varchar("outcome", { length: 20 }).notNull(),  // SUCCESS | DELAYED | FAILED
+  responseTimeSec: integer("response_time_sec"),
+  actionTaken:     varchar("action_taken", { length: 100 }),
+  effectiveness:   integer("effectiveness"),  // 0-100 admin-scored
+  notes:           text("notes"),
+  recordedBy:      varchar("recorded_by"),
+  createdAt:       timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_decision_outcomes_decision").on(table.decisionId),
+  index("idx_decision_outcomes_incident").on(table.incidentId),
+  index("idx_decision_outcomes_created").on(table.createdAt),
+]);
+
+export type DecisionOutcome       = typeof decisionOutcomes.$inferSelect;
+export type InsertDecisionOutcome = typeof decisionOutcomes.$inferInsert;
+
+// ── §26 — Durable Event Store ─────────────────────────────────────────────────
+
+export const domainEvents = pgTable("domain_events", {
+  id:          varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId:     varchar("event_id").notNull().unique(),       // client-generated idempotency key
+  eventType:   varchar("event_type", { length: 100 }).notNull(),
+  entityId:    varchar("entity_id"),
+  entityType:  varchar("entity_type", { length: 50 }),
+  payload:     jsonb("payload").notNull().default(sql`'{}'::jsonb`),
+  version:     integer("version").notNull().default(1),
+  processedBy: jsonb("processed_by").notNull().default(sql`'[]'::jsonb`), // array of consumer IDs
+  createdAt:   timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_domain_events_type").on(table.eventType),
+  index("idx_domain_events_entity").on(table.entityId),
+  index("idx_domain_events_created").on(table.createdAt),
+  index("idx_domain_events_event_id").on(table.eventId),
+]);
+
+export type DomainEvent       = typeof domainEvents.$inferSelect;
+export type InsertDomainEvent = typeof domainEvents.$inferInsert;
+
+export type SignalFeature   = typeof signalFeatures.$inferSelect;
+export type SignalOutcome    = typeof signalOutcomes.$inferSelect;
+export type ModelWeight      = typeof modelWeights.$inferSelect;
+export type InsertSignalFeature  = typeof signalFeatures.$inferInsert;
+export type InsertSignalOutcome  = typeof signalOutcomes.$inferInsert;
+export type InsertModelWeight    = typeof modelWeights.$inferInsert;
