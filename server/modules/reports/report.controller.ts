@@ -7,6 +7,7 @@ import { generateETag, isModified } from "@shared/changeTracking";
 import { logger } from "../../utils/logger";
 import { ForbiddenError, ValidationError } from "../../errors/AppError";
 import { AuditLogger } from "../../middleware/auditLog";
+import { enqueueAIAnalysis } from "../../workers/ai-analysis.worker";
 
 export class ReportController {
   private broadcast?: (message: any) => void;
@@ -109,11 +110,27 @@ export class ReportController {
       throw new ValidationError(errorMessage, { errors: validation.error.errors });
     }
 
-    const report = await reportService.createReport(validation.data);
-    
+    // §21 Async Pipeline: save fast (no AI), enqueue background job, return 202
+    const report = await reportService.createReportFast(validation.data);
+
+    // Priority boost for critical/high severity reports
+    const priority = validation.data.severity === "critical" ? 10
+                   : validation.data.severity === "high"     ? 5
+                   : 0;
+
+    const jobId = await enqueueAIAnalysis(report.id, userId, priority);
+
+    logger.info("Report accepted, AI analysis enqueued", {
+      reportId: report.id,
+      jobId,
+      severity: validation.data.severity,
+      priority,
+    });
+
     this.broadcast?.({ 
       type: "new_report", 
       data: report,
+      aiStatus: "pending",
       duplicateInfo: report.duplicateCheck?.hasSimilar ? {
         isDuplicate: true,
         confidence: report.duplicateCheck.confidence,
@@ -121,7 +138,12 @@ export class ReportController {
       } : undefined
     });
     
-    res.status(201).json(report);
+    res.status(202).json({
+      ...report,
+      aiStatus:       "pending",
+      aiJobId:        jobId,
+      message:        "Report received. AI analysis is running in the background.",
+    });
   }
 
   async updateReportStatus(req: Request, res: Response): Promise<void> {

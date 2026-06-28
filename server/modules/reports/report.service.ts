@@ -2,7 +2,7 @@ import { storage } from "../../db/storage";
 import type { DisasterReport, InsertDisasterReport, InsertVerification } from "@shared/schema";
 import type { PaginationParams } from "@shared/pagination";
 import type { ReportFilter } from "@shared/filtering";
-import { AIValidationService } from "../validators/aiValidation";
+import { AIValidationService } from "../../validators/aiValidation";
 import { clusteringService } from "../../utils/clustering";
 import { logger } from "../../utils/logger";
 import { NotFoundError, ConflictError } from "../../errors/AppError";
@@ -123,6 +123,35 @@ export class ReportService {
     return storage.getPrioritizedReports();
   }
 
+  /**
+   * Async-first path (§21): saves immediately, no AI call on this thread.
+   * AI analysis is enqueued by the controller and runs in a background worker.
+   * Returns the raw report with aiValidationScore = null ("pending").
+   */
+  async createReportFast(data: InsertDisasterReport): Promise<ReportWithDuplicateInfo> {
+    logger.info("Fast-path report create (async AI)", {
+      userId:   data.userId,
+      type:     data.type,
+      severity: data.severity,
+    });
+
+    const report = await storage.createDisasterReport(data);
+
+    const recentReports = await storage.getRecentReports(200);
+    const duplicateCheck = await this.detectAndLinkDuplicates(report, recentReports);
+
+    logger.info("Report saved (AI analysis enqueued)", {
+      reportId:   report.id,
+      hasSimilar: duplicateCheck.hasSimilar,
+    });
+
+    return { ...report, duplicateCheck };
+  }
+
+  /**
+   * Legacy synchronous path — kept for internal/admin use where AI score is
+   * needed immediately (e.g. bulk import, admin tools). Public API uses createReportFast.
+   */
   async createReport(data: InsertDisasterReport): Promise<ReportWithDuplicateInfo> {
     logger.info("Creating new disaster report", { 
       userId: data.userId, 

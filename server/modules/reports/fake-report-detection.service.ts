@@ -1,3 +1,4 @@
+import { logger } from "../../utils/logger";
 import type { DisasterReport } from "@shared/schema";
 
 const exifParser = require("exif-parser");
@@ -230,7 +231,7 @@ export class FakeReportDetectionService {
         const metadata = await this.extractImageMetadata(url, report);
         results.push(metadata);
       } catch (error) {
-        console.error(`Failed to analyze image ${url}:`, error);
+        logger.error(`Failed to analyze image ${url}:`, error instanceof Error ? error : undefined);
         results.push({
           hasExif: false,
         });
@@ -298,7 +299,7 @@ export class FakeReportDetectionService {
 
       return metadata;
     } catch (error) {
-      console.error("EXIF parsing error:", error);
+      logger.error("EXIF parsing error:", error instanceof Error ? error : undefined);
       return { hasExif: false };
     }
   }
