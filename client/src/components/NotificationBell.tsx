@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "wouter";
-import { useWebSocket } from "@/hooks/useWebSocket";
+import { useRealtimeMessage } from "@/providers/WebSocketProvider";
 
 interface Notification {
   id: string;
@@ -73,15 +73,12 @@ export function NotificationBell() {
     },
   });
 
-  useWebSocket({
-    onMessage: useCallback((message: any) => {
-      if (message.type === "new_notification") {
-        queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread/count"] });
-      }
-    }, []),
-  });
+  useRealtimeMessage(useCallback((message: any) => {
+    if (message.type === "new_notification") {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread/count"] });
+    }
+  }, []));
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
