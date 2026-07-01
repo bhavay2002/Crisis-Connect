@@ -2,7 +2,7 @@ import { Profiler, ProfilerOnRenderCallback, memo, useMemo, useCallback } from "
 
 export interface PerformanceMetrics {
   id: string;
-  phase: "mount" | "update";
+  phase: "mount" | "update" | "nested-update";
   actualDuration: number;
   baseDuration: number;
   startTime: number;
